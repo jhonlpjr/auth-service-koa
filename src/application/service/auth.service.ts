@@ -2,8 +2,8 @@ import { inject } from "inversify";
 import { LoginUseCase } from "../usecases/login.usecase";
 import { TYPES } from "../../infraestructure/providers/types";
 import logger from "../../utils/logger";
-import { LoginReqDTO } from '../dto/request/login.req.dto';
-import { VerificateSecretKeyUseCase } from "../usecases/verificate-secret-key.usecase";
+import { LoginReqDTO } from '../../presentation/http/dto/request/login.req.dto';
+// import eliminado: VerificateSecretKeyUseCase
 import { GetPayloadUseCase } from "../usecases/get-payload.usecase";
 import { injectable } from "inversify";
 
@@ -12,7 +12,7 @@ export class AuthService {
     constructor(
         @inject(TYPES.LoginUseCase) private loginUseCase: LoginUseCase,
         @inject(TYPES.GetPayloadUseCase) private getPayloadUseCase: GetPayloadUseCase,
-        @inject(TYPES.VerificateSecretKeyUseCase) private verificateSecretKeyUseCase: VerificateSecretKeyUseCase,
+    // verificateSecretKeyUseCase eliminado
     ) { }
 
     public async login(dto: LoginReqDTO): Promise<any> {
@@ -36,13 +36,5 @@ export class AuthService {
         }
     }
 
-    public async validateSecretKey(secret_key: string): Promise<any> {
-        try {
-            const result = await this.verificateSecretKeyUseCase.execute(secret_key);
-            return result;
-        } catch (error) {
-            logger.error(`Secret key validation failed ${error}`, error);
-            throw error;
-        }
-    }
+    // método validateSecretKey eliminado
 }

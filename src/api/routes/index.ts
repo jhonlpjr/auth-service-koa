@@ -1,24 +1,28 @@
 import Router from 'koa-router';
 import Koa from 'koa';
-import { AuthController } from '../infraestructure/controllers/auth.controller';
 import logger from '../../utils/logger';
 import { loginRateLimit } from "../middleware/rate-limit";
+import { AuthController } from '../controllers/auth.controller';
+import { SuperUserController } from '../controllers/super-user.controller';
+import { superSecretKeyMiddleware } from '../middleware/super-secret-key';
+import { container } from '../../infraestructure/providers/container-config';
+import { TYPES } from '../../infraestructure/providers/types';
 
 const router = new Router({ prefix: '/api/v1' });
 
-const authController = new AuthController();
-
 export function setRoutes(app: Koa) {
+    const authController = container.get<AuthController>(TYPES.AuthController);
+    const superUserController = container.get<SuperUserController>(TYPES.SuperUserController);
     router.get('/', async (ctx) => {
         ctx.body = 'API MS Auth';
     });
 
-    router.post('/login', loginRateLimit, async (ctx) => { await authController.login(ctx) });
-
+    router.post('/login', ...loginRateLimit, async (ctx, next) => { await authController.login(ctx); await next(); });
+    router.post('/refresh-token', async (ctx, next) => { await authController.refreshToken(ctx); await next(); });
     router.post('/get-payload', async (ctx) => { await authController.getPayload(ctx) });
-
-    router.post('/verificate-secret-key', async (ctx) => { await authController.validateSecretKey(ctx) });
-    
+    router.post('/super/create-user', superSecretKeyMiddleware, async (ctx) => {
+        await superUserController.createUser(ctx);
+    });
     router.stack.forEach((route) => {
         logger.info(`Route registered: [${route.methods.join(', ')}] ${route.path}`);
     });

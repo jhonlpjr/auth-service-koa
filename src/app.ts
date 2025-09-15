@@ -1,28 +1,42 @@
+import os from "os";
 import dotenv from "dotenv";
 import Koa from "koa";
+import { metricsMiddleware } from "./api/middleware/metrics";
 import bodyParser from "koa-bodyparser";
-import { setRoutes } from "./routes/index";
-import { requestId } from "./middleware/request-id";
-import { errorHandler } from "./middleware/error-handler";
-import { securityHeaders, simpleCors } from "./middleware/security";
-import { httpLogger } from "./middleware/http-logger"; // ver paso 6
+import { errorHandler } from "./api/middleware/error-handler";
+import { loggerMiddleware } from "./api/middleware/logger";
+import { captchaMiddleware } from "./api/middleware/captcha";
+import { setRoutes } from "./api/routes";
+import { setInfraRoutes } from "./api/routes/infra.routes";
+import { Environment } from "./infraestructure/config/environment.config";
 
 dotenv.config();
 
 const app = new Koa();
 app.proxy = true; // respeta X-Forwarded-For detrás de proxy/CDN
 
-// Orden importa: ID -> errores -> logs -> headers/cors -> body -> rutas
-app.use(requestId);
+// Orden importa: bodyParser -> errorHandler -> logger -> metrics -> captcha -> rutas
+app.use(bodyParser());
 app.use(errorHandler);
-app.use(httpLogger);
-app.use(securityHeaders());
-app.use(simpleCors());
-app.use(bodyParser({ enableTypes: ["json"], jsonLimit: "128kb" }));
+app.use(loggerMiddleware);
+app.use(metricsMiddleware);
+app.use(captchaMiddleware);
+
+
+setInfraRoutes(app);
 
 setRoutes(app);
 
 const PORT = process.env.PORT || 3000;
+const interfaces = os.networkInterfaces();
+const addresses = Object.values(interfaces)
+  .flat()
+  .filter((iface): iface is os.NetworkInterfaceInfo => typeof iface !== 'undefined' && iface.family === "IPv4" && !iface.internal)
+  .map((iface) => iface.address);
+
+const host = addresses[0] || "localhost";
 app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`Server is running on http://${host}:${PORT}`);
 });
+
+Environment.validateAll();

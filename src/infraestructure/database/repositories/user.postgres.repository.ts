@@ -1,15 +1,14 @@
-// import eliminado: UserKey
 import { UserLogin } from "../../../domain/interfaces/user-login.interface";
-import { AuthRepository } from "../../../domain/repository/auth.repository";
+import { UserRepository } from "../../../domain/repository/user.repository";
 import { PostgresDB } from "../../../utils/database";
 import logger from "../../../utils/logger";
 
-export class AuthRepositoryImpl implements AuthRepository {
-    async createUser(user: { username: string; email: string; password: string }): Promise<any> {
+export class UserRepositoryImpl implements UserRepository {
+    async createUser(user: { username: string; email: string; password: string; key: string }): Promise<any> {
         try {
             const result = await PostgresDB.query(
-                'INSERT INTO users (username, email, password, created_at) VALUES ($1, $2, $3, NOW()) RETURNING *',
-                [user.username, user.email, user.password]
+                'INSERT INTO users (id, username, email, password, key, created_at) VALUES (uuid_generate_v4(), $1, $2, $3, $4, NOW()) RETURNING *',
+                [user.username, user.email, user.password, user.key]
             );
             return result.rows[0];
         } catch (error) {
@@ -31,17 +30,14 @@ export class AuthRepositoryImpl implements AuthRepository {
 
     async getUserByUsername(username: string): Promise<UserLogin> {
         try {
-            const result = await PostgresDB.query(`SELECT u.id, u.username, u.password, uk.secret_key "key"
-                FROM "users" u inner join user_key uk
-                ON u.id = uk.user_id 
-                WHERE u.username = $1`, [username]);
+            const result = await PostgresDB.query(
+                'SELECT id, username, password, key FROM users WHERE username = $1',
+                [username]
+            );
             return result.rows[0] as UserLogin;
         } catch (error) {
             logger.error("Error fetching user by username:", error);
             throw new Error("Database error");
         }
-
     }
-
-    // Método getUserByKey eliminado
 }

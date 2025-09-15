@@ -1,7 +1,10 @@
 import { injectable } from "inversify";
 import logger from "../../utils/logger";
-import jwt from "jsonwebtoken";
+import { V2 } from "paseto";
 import { UnauthorizedError } from "../../utils/error";
+import SecretsManagerService from "../../infraestructure/secrets/secret-manager.service";
+import { ENV } from "../../utils/environments";
+import { Environment } from "../../infraestructure/config/environment.config";
 
 @injectable()
 export class GetPayloadUseCase {
@@ -9,11 +12,12 @@ export class GetPayloadUseCase {
 
   async execute(token: string) {
     try {
-      const payload = jwt.verify(token, process.env.JWT_SECRET || "default_secret");
+      const secretsManager = SecretsManagerService.getInstance();
+      const privateKey = await secretsManager.getSecret(Environment.get(ENV.PASETO_SECRET_NAME));
+      const payload = await V2.verify(token, Buffer.from(privateKey));
       if (!payload) {
         throw new UnauthorizedError("Invalid token");
       }
-
       return payload;
 
     } catch (error) {

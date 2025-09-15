@@ -1,5 +1,6 @@
 import { Context, Next } from "koa";
-import logger from "../utils/logger";
+import logger from "../../utils/logger";
+
 
 export async function errorHandler(ctx: Context, next: Next) {
   try {
@@ -13,7 +14,12 @@ export async function errorHandler(ctx: Context, next: Next) {
     const message =
       status === 500 ? "Internal server error" : (err?.message || "Error");
 
-    logger.error({ err, requestId: rid }, "Unhandled error");
+    logger.error({
+      msg: "Unhandled error",
+      error: err,
+      stack: err?.stack,
+      requestId: rid
+    });
     ctx.status = status;
     ctx.body = { error: message, requestId: rid };
   }
