@@ -1,25 +1,25 @@
 import { injectable } from "inversify";
-import logger from "../../utils/logger";
+import logger from "../../shared/utils/logger";
 import { TYPES } from "../../infraestructure/providers/types";
-import { AuthRepository } from "../../domain/repository/auth.repository";
 import { inject } from "inversify";
 import { V2 } from "paseto";
-import { UserPayload } from "../../domain/interfaces/user-payload.interface";
-import { RefreshTokenRepository } from "../../infraestructure/database/repositories/refresh-token.postgres.repository";
+import { } from "../../infraestructure/database/repositories/refresh-token.postgres.repository";
 import crypto from "crypto";
 import { Argon2PasswordHasher } from "../../infraestructure/crypto/argon-2-password-hasher";
-import { UnauthorizedError } from "../../utils/error";
-import { ENV } from "../../utils/environments";
+import { UnauthorizedError } from "../../shared/api/exceptions/unauthorized-error";
+import { ENV } from "../../shared/constants/environments.constants";
 import SecretsManagerService from "../../infraestructure/secrets/secret-manager.service";
 import { Environment } from "../../infraestructure/config/environment.config";
 import { UserRepository } from "../../domain/repository/user.repository";
+import { RefreshTokenRepository } from "../../domain/repository/refresh-token.repository";
+import { LoggedUserDTO } from "../dto/logged-user.dto";
 
 @injectable()
 export class LoginUseCase {
-  constructor(@inject(TYPES.UserRepository) private userRepository: UserRepository) {}
+  constructor(@inject(TYPES.UserRepository) private userRepository: UserRepository, 
+              @inject(TYPES.RefreshTokenRepository) private refreshTokenRepository: RefreshTokenRepository) { }
 
   async execute(username: string, password: string) {
-    const refreshTokenRepo = new RefreshTokenRepository();
     try {
       const user = await this.userRepository.getUserByUsername(username);
       if (!user) {
@@ -45,9 +45,9 @@ export class LoginUseCase {
       const refreshToken = crypto.randomBytes(64).toString('hex');
       const jti = crypto.randomUUID();
       const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7); // 7 días
-      await refreshTokenRepo.save(user.id, refreshToken, expiresAt, jti);
+      await this.refreshTokenRepository.save(user.id, refreshToken, expiresAt, jti);
 
-      return { token, refreshToken };
+      return new LoggedUserDTO(token, refreshToken);
 
     } catch (error) {
       logger.error(`Error during login: ${error}`);

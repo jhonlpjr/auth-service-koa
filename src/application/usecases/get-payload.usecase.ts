@@ -1,10 +1,11 @@
 import { injectable } from "inversify";
-import logger from "../../utils/logger";
+import logger from "../../shared/utils/logger";
 import { V2 } from "paseto";
-import { UnauthorizedError } from "../../utils/error";
+import { UnauthorizedError } from "../../shared/api/exceptions/unauthorized-error";
 import SecretsManagerService from "../../infraestructure/secrets/secret-manager.service";
-import { ENV } from "../../utils/environments";
+import { ENV } from "../../shared/constants/environments.constants";
 import { Environment } from "../../infraestructure/config/environment.config";
+import { PayloadMapper } from "../mappers/payload.mapper";
 
 @injectable()
 export class GetPayloadUseCase {
@@ -18,7 +19,7 @@ export class GetPayloadUseCase {
       if (!payload) {
         throw new UnauthorizedError("Invalid token");
       }
-      return payload;
+      return PayloadMapper.mapToPayloadResDTO(payload);
 
     } catch (error) {
       if (error instanceof Error || error instanceof UnauthorizedError) {

@@ -1,26 +1,34 @@
-import { RefreshTokenRepository } from '../../infraestructure/database/repositories/refresh-token.postgres.repository';
+import { injectable, inject } from "inversify";
+import { TYPES } from "../../infraestructure/providers/types";
 import { V2 } from 'paseto';
 import crypto from 'crypto';
+import { ENV } from "../../shared/constants/environments.constants";
+import SecretsManagerService from "../../infraestructure/secrets/secret-manager.service";
+import { REFRESH_TOKEN_EXPIRATION_MS } from "../../shared/constants/refresh-token.constants";
+import { RefreshTokenRepository } from "../../domain/repository/refresh-token.repository";
+import { Environment } from "../../infraestructure/config/environment.config";
+import { LoggedUserDTO } from "../dto/logged-user.dto";
 
+@injectable()
 export class RefreshTokenUseCase {
-  private repo = new RefreshTokenRepository();
+  constructor(
+    @inject(TYPES.RefreshTokenRepository) private repo: RefreshTokenRepository
+  ) { }
 
   async execute(userId: string, refreshToken: string) {
-    // Verificar el refresh token
     const record = await this.repo.verify(userId, refreshToken);
     if (!record || new Date(record.expires_at) < new Date()) {
       throw new Error('Invalid or expired refresh token');
     }
-    // Rotar: eliminar el anterior
     await this.repo.revoke(record.jti);
-    // Generar nuevo access token y refresh token
-    const privateKey = process.env.PASETO_PRIVATE_KEY || 'default_paseto_private_key';
+    const secretsManager = SecretsManagerService.getInstance();
+    const privateKey = await secretsManager.getSecret(Environment.get(ENV.PASETO_SECRET_NAME));
     const payload = { id: userId };
     const token = await V2.sign(payload, Buffer.from(privateKey));
     const newRefreshToken = crypto.randomBytes(64).toString('hex');
     const newJti = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
+    const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRATION_MS);
     await this.repo.save(userId, newRefreshToken, expiresAt, newJti);
-    return { token, refreshToken: newRefreshToken };
+    return new LoggedUserDTO(token, newRefreshToken);
   }
 }

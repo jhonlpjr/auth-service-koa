@@ -1,6 +1,8 @@
+
 import svgCaptcha from 'svg-captcha';
 import redis from '../../infraestructure/providers/redis';
 import { Context, Next } from 'koa';
+import { ForbiddenError } from '../../shared/api/exceptions/forbidden-error';
 
 const MAX_LOGIN_FAILS = 3;
 const CAPTCHA_TTL = 300; // segundos
@@ -16,16 +18,12 @@ export async function captchaMiddleware(ctx: Context, next: Next) {
     if (!body.captcha) {
       const captcha = svgCaptcha.create();
       await redis.set(`captcha:${ip}`, captcha.text, 'EX', CAPTCHA_TTL);
-      ctx.status = 403;
-      ctx.body = { captcha: captcha.data, message: 'CAPTCHA required' };
-      return;
+      throw new ForbiddenError('CAPTCHA required', { captcha: captcha.data });
     }
     // Validar captcha
     const expected = await redis.get(`captcha:${ip}`);
     if (!expected || body.captcha !== expected) {
-      ctx.status = 403;
-      ctx.body = { error: 'Invalid CAPTCHA' };
-      return;
+      throw new ForbiddenError('Invalid CAPTCHA');
     }
     // Si es correcto, eliminar el captcha
     await redis.del(`captcha:${ip}`);

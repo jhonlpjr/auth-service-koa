@@ -5,8 +5,6 @@ export class UserEntity implements User {
     username: string;
     password: string;
     key: string;
-    names: string;
-    lastnames: string;
     created_at: Date;
 
     constructor(partial: Partial<UserEntity>) {
@@ -14,8 +12,6 @@ export class UserEntity implements User {
         this.username = partial.username || "";
         this.password = partial.password || "";
         this.key = partial.key || "";
-        this.names = partial.names || "";
-        this.lastnames = partial.lastnames || "";
         this.created_at = partial.created_at || new Date();
     }
 }

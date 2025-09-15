@@ -1,4 +1,5 @@
 import { Context, Next } from "koa";
+import { HttpStatus } from "../../shared/enums/http-status.enum";
 
 // Rellena con tus orígenes permitidos en PROD:
 const defaultAllowlist = new Set<string>([
@@ -27,7 +28,7 @@ export function simpleCors(allowlist: Set<string> = defaultAllowlist) {
       ctx.set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Request-Id");
       ctx.set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
       if (ctx.method === "OPTIONS") {
-        ctx.status = 204;
+        ctx.status = HttpStatus.NO_CONTENT;
         return;
       }
     }

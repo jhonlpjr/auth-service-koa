@@ -1,6 +1,6 @@
 import Router from 'koa-router';
 import Koa from 'koa';
-import logger from '../../utils/logger';
+import logger from '../../shared/utils/logger';
 import { loginRateLimit } from "../middleware/rate-limit";
 import { AuthController } from '../controllers/auth.controller';
 import { SuperUserController } from '../controllers/super-user.controller';

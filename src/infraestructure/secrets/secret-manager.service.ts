@@ -1,6 +1,6 @@
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
 import { Environment } from "../config/environment.config";
-import { ENV } from "../../utils/environments";
+import { ENV } from "../../shared/constants/environments.constants";
 
 
 class SecretsManagerService {

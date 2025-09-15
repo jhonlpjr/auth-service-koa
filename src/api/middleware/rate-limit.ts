@@ -21,7 +21,6 @@ export function rateLimitRedis(opts?: { windowMs?: number; max?: number; scope?:
       username = body.username;
     }
     const key = getKey(ip, username, scope);
-    const now = Date.now();
     const ttl = Math.ceil(windowMs / 1000);
     let count = await redis.incr(key);
     if (count === 1) {
@@ -30,9 +29,10 @@ export function rateLimitRedis(opts?: { windowMs?: number; max?: number; scope?:
     if (count > max) {
       const retryAfter = await redis.ttl(key);
       ctx.set("Retry-After", String(retryAfter));
-      ctx.status = 429;
-      ctx.body = { error: "Too Many Requests" };
-      return;
+      const err: any = new Error("Too Many Requests");
+      err.statusCode = 429;
+      err.details = { retryAfter };
+      throw err;
     }
     await next();
   };

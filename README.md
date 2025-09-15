@@ -5,61 +5,81 @@ Focus: security, clarity, and operability for portfolios and real deployments.
 
 ---
 
+
 ## Key Features
 
 - **HTTP API (Koa)** with thin routes and controllers
 - **Clean Architecture** (Presentation / Application / Domain / Infrastructure)
-- **Security hardening (first pass)**  
-  - Request correlation: `X-Request-Id` on every request  
-  - Global error handler with consistent JSON responses  
-  - Baseline security headers + minimal CORS allowlist  
-  - In-memory rate limiting (stricter on `/login`)  
-  - Body size limit (`128kb`) and `app.proxy = true` for real client IPs behind proxies/CDNs  
+- **Strict DTO validation** using `class-validator` on all request DTOs
+- **Consistent error handling** with custom HTTP exception classes and global error middleware
+- **Response mapping**: all responses (success/error) are mapped via a shared `ResponseMapper`
+- **Security hardening**
+  - Request correlation: `X-Request-Id` on every request
+  - Global error handler with consistent JSON responses (includes requestId)
+  - Security headers, minimal CORS allowlist
+  - In-memory rate limiting (stricter on `/login`), Redis-ready
+  - Body size limit (`128kb`), `app.proxy = true` for real client IPs
   - Redacted logging (Authorization/password/token)
+- **Dependency Injection** via Inversify
 - **Docker-ready**, 12-Factor configuration via `.env`
 - **PostgreSQL** (or your DB of choice), pluggable via adapters
 
-> Next steps (roadmap): Argon2id password hashing, DTO validation (Zod), Redis rate limiting (IP + username), PASETO / JWT with key rotation, conditional CAPTCHA, metrics with Prometheus, rotating refresh tokens.
+> Roadmap: Zod validation, Redis rate limiting, PASETO/JWT with key rotation, conditional CAPTCHA, Prometheus metrics, rotating refresh tokens.
 
 ---
+
 
 ## Tech Stack
 
 - **Language:** Node.js (≥ 18/20), TypeScript
 - **Web:** Koa
+- **Validation:** class-validator, class-transformer
 - **Logging:** Pino (pretty in dev) with secret redaction
 - **DB:** PostgreSQL (swap via adapters)
-- **Auth:** JWT (upgradeable to PASETO / JWKS rotation)
-- **Cache/Rate Limit (optional prod):** Redis
+- **Auth:** PASETO (upgradeable, JWT compatible)
+- **DI:** Inversify
+- **Cache/Rate Limit:** In-memory, Redis-ready
 - **Container:** Docker
 
 ---
 
-## Project Structure
+
+## Project Structure (actual)
 
 ```txt
 src/
-  presentation/
-    http/
-      routes/            # Koa routes (thin)
-      controllers/       # Controllers (no business logic)
-      dto/               # Request/Response DTOs (validation)
-      middleware/        # request-id, error-handler, cors, logger, guards
+  api/
+    controllers/       # Controllers (no business logic)
+    dto/
+      request/         # Request DTOs (validation)
+      response/        # Response DTOs
+    middleware/        # request-id, error-handler, cors, logger, guards
+    mappers/           # API mappers
+    routes/            # Koa routes
   application/
-    usecases/            # LoginUser, RefreshToken, etc.
-    ports/               # UserRepository, TokenService, RateLimiter...
+    usecases/          # Use cases (Login, RefreshToken, etc.)
+    mappers/           # Application-level mappers
+    service/           # Application services
   domain/
-    entities/            # User, RefreshToken
-    value-objects/       # Email, PasswordHash
-    errors/              # Domain errors
-  infra/
-    db/                  # Repositories (Prisma/TypeORM/Knex)
-    tokens/              # JWT/PASETO implementations
-    cache/               # Redis rate limiter/adapters
-  app.ts                 # Koa app wiring
+    entities/          # User, RefreshToken
+    interfaces/        # Domain interfaces
+    repository/        # Repository interfaces
+  infraestructure/
+    config/            # Environment config
+    crypto/            # Password hasher, crypto utils
+    database/
+      repositories/    # DB repository implementations
+    providers/         # DI container, types
+    secrets/           # Secrets manager
+  shared/
+    api/exceptions/    # Custom HTTP exception classes
+    constants/         # Shared constants
+    enums/             # Shared enums
+    helpers/           # Shared helpers
+    mappers/           # Shared mappers (e.g., ResponseMapper)
+    utils/             # Shared utilities (logger, validators, etc.)
+  app.ts               # Koa app wiring
 ```
-
-> If you’re migrating from a flatter layout, you can keep your current files and move them gradually into the structure above.
 
 ---
 
@@ -159,28 +179,72 @@ docker run --rm -p 3000:3000 --env-file .env auth-service:local
 /v1
 ```
 
-### Auth
-> Implemented today: `/auth/login`. Others listed as “planned” are part of the roadmap.
 
-- **POST** `/auth/login` — Authenticate user  
+### Auth API
+
+- **POST** `/api/v1/login` — Authenticate user
   - **Request (JSON)**
     ```json
-    { "email": "user@example.com", "password": "strongPass123", "deviceId": "optional-uuid" }
+    { "username": "user1", "password": "strongPass123" }
     ```
   - **Response (200)**
     ```json
     {
-      "accessToken": "jwt...",
-      "refreshToken": "jwt...",
-      "userId": "uuid"
+      "token": "paseto...",
+      "refreshToken": "...",
+      "user": { "id": "uuid", "username": "user1" }
     }
     ```
-  - **Errors**: `401 Unauthorized`, `429 Too Many Requests` (with `Retry-After`), `400/422` for validation
+  - **Errors**: `401 Unauthorized`, `429 Too Many Requests`, `400` for validation
 
-- **POST** `/auth/refresh` — (Planned) Rotate refresh token
-- **POST** `/auth/logout` — (Planned) Revoke current session
-- **POST** `/auth/register` — (Optional) Create user with email verification
-- **GET**  `/auth/me` — (Optional) Return current identity
+- **POST** `/api/v1/refresh-token` — Rotate refresh token
+  - **Request (JSON)**
+    ```json
+    { "userId": "uuid", "refreshToken": "..." }
+    ```
+  - **Response (200)**
+    ```json
+    {
+      "token": "paseto...",
+      "refreshToken": "..."
+    }
+    ```
+  - **Errors**: `401 Unauthorized`, `400` for validation
+
+- **POST** `/api/v1/get-payload` — Get token payload
+  - **Request (JSON)**
+    ```json
+    { "token": "paseto..." }
+    ```
+  - **Response (200)**
+    ```json
+    {
+      "id": "uuid",
+      "username": "user1",
+      "key": "..."
+    }
+    ```
+  - **Errors**: `401 Unauthorized`, `400` for validation
+
+- **POST** `/api/v1/super/create-user` — Create user (superuser, protected)
+  - **Request (JSON)**
+    ```json
+    { "username": "admin", "email": "admin@example.com", "password": "...", "key": "..." }
+    ```
+  - **Response (200)**
+    ```json
+    {
+      "user": { "id": "uuid", "username": "admin", "email": "admin@example.com" },
+      "key": "..."
+    }
+    ```
+  - **Errors**: `403 Forbidden`, `400` for validation
+
+### Infra & Health
+
+- **GET** `/metrics` — Prometheus metrics
+- **GET** `/healthz` — Liveness probe
+- **GET** `/readyz` — Readiness probe
 
 ### Health
 - **GET** `/healthz` — basic liveness (no sensitive data) *(planned)*
@@ -188,23 +252,25 @@ docker run --rm -p 3000:3000 --env-file .env auth-service:local
 
 ---
 
+
 ## Security & Hardening
 
-- **Request ID**: Incoming requests receive `X-Request-Id`; echoed in error responses.
-- **Error Handling**: Unified JSON errors with non-leaky messages (maps unauthorized to 401).
+- **Request ID**: All requests receive `X-Request-Id`, echoed in error responses.
+- **Error Handling**: Global error handler returns consistent JSON, maps exceptions to HTTP codes, includes requestId.
 - **Security Headers**: Frame blocking, no-sniff, no-referrer, etc.
-- **CORS**: Minimal allowlist (edit in `presentation/http/middleware/cors.ts` or `security.ts`).
+- **CORS**: Minimal allowlist (see `api/middleware/cors.ts` or `security.ts`).
 - **Rate Limiting**:
-  - Global in-memory limiter (per instance).
-  - Stricter limiter on `/auth/login`.
-  - **Production**: replace with Redis-backed limiter to work across replicas.
-- **Body Limit**: `128kb`.
-- **Proxy Awareness**: `app.proxy = true` (respects `X-Forwarded-For`).
-- **Logging**: Pino, with redaction of `Authorization`, `password`, `token`.
-
-> Upcoming: **Argon2id** hashing, **Redis** rate limiting per IP & username, **PASETO/JWT with key rotation**, **conditional CAPTCHA**, **Prometheus metrics**, **rotating refresh tokens with reuse detection**.
+  - Global in-memory limiter (per instance)
+  - Stricter limiter on `/api/v1/login`
+  - **Production**: swap for Redis-backed limiter for distributed setups
+- **Body Limit**: `128kb`
+- **Proxy Awareness**: `app.proxy = true` (respects `X-Forwarded-For`)
+- **Logging**: Pino, with redaction of `Authorization`, `password`, `token`
+- **Password Hashing**: Argon2
+- **Token Format**: PASETO (upgradeable, JWT compatible)
 
 ---
+
 
 ## Scripts
 
@@ -216,19 +282,20 @@ npm run dev
 npm run build
 npm run start
 
-# Quality (if configured)
+# Quality
 npm run lint
 npm run typecheck
-npm test
+# (add tests as needed)
 ```
 
 ---
 
+
 ## Testing (suggested)
 
-- **Unit**: Use cases (e.g., `LoginUser` happy path & failures)
-- **Integration**: `/auth/login` with test DB and real hashing
-- **E2E**: Spin-up via Docker Compose (DB + service), hit HTTP endpoints
+- **Unit**: Use cases (e.g., login, refresh, payload extraction)
+- **Integration**: `/api/v1/login` and `/api/v1/refresh-token` with test DB and real hashing
+- **E2E**: Docker Compose (DB + service), hit HTTP endpoints
 - **Security**: Rate limit, invalid tokens, brute-force attempts
 
 ---
@@ -243,12 +310,12 @@ npm test
 
 ---
 
+
 ## Roadmap
 
-- [ ] Argon2id password hashing (replace bcrypt)
-- [ ] DTO validation with Zod (strict input/output)
+- [ ] Zod validation (strict input/output)
 - [ ] Redis rate limiting (IP + username) with backoff/locks
-- [ ] PASETO or JWT with `kid` + JWKS rotation
+- [ ] PASETO/JWT with `kid` + JWKS rotation
 - [ ] Conditional CAPTCHA after N failures
 - [ ] Metrics (`/metrics`) + `/healthz` + `/readyz`
 - [ ] Rotating refresh tokens + reuse detection

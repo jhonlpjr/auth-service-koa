@@ -1,14 +1,12 @@
 import { Context } from 'koa';
-import { ERROR_INTERNAL_SERVER, UnauthorizedError } from '../../utils/error';
-import { httpStatus } from '../../utils/http';
-import { validate } from 'class-validator';
+import { validateDto } from '../../shared/utils/validators';
 import { AuthService } from '../../application/service/auth.service';
-import { LoginReqDTO } from '../../presentation/http/dto/request/login.req.dto';
-// import eliminado: VerificateSecretKeyReqDto
-import { GetPayloadReqDto } from '../../presentation/http/dto/request/get-payload.req.dto';
-import { RefreshTokenUseCase } from '../../application/usecases/refresh-token.usecase';
+import { RefreshTokenReqDTO } from '../dto/request/refresh-token.req.dto';
 import { container } from '../../infraestructure/providers/container-config';
 import { TYPES } from '../../infraestructure/providers/types';
+import { AuthMapper } from '../mappers/auth.mapper';
+import { GetPayloadReqDto } from '../dto/request/get-payload.req.dto';
+import { LoginReqDTO } from '../dto/request/login.req.dto';
 
 
 export class AuthController {
@@ -16,38 +14,27 @@ export class AuthController {
         const authService = container.get<AuthService>(TYPES.AuthService);
         const requestBody = ctx.request.body as LoginReqDTO;
         const requestDto = new LoginReqDTO(requestBody.username, requestBody.password);
-        const errors = await validate(requestDto);
-        if (errors.length > 0) {
-            ctx.status = httpStatus.UNAUTHORIZED;
-            ctx.body = { errors: errors.map(error => error.constraints) };
-            return;
-        }
-        const result = await authService.login(requestDto);
-        ctx.body = result;
+        await validateDto(requestDto); // Lanza excepción si falla
+        const result = await authService.login(requestDto.username, requestDto.password);
+        ctx.body = AuthMapper.toLoginResponse(result.token, result.refreshToken);
     }
 
     async refreshToken(ctx: Context) {
-        const { userId, refreshToken } = ctx.request.body as { userId: string, refreshToken: string };
-        const usecase = new RefreshTokenUseCase();
-        const result = await usecase.execute(userId, refreshToken);
-        ctx.status = httpStatus.OK;
-        ctx.body = result;
+        const authService = container.get<AuthService>(TYPES.AuthService);
+        const requestBody = ctx.request.body as { userId: string, refreshToken: string };
+        const requestDto = new RefreshTokenReqDTO(requestBody.userId, requestBody.refreshToken);
+        await validateDto(requestDto); // Lanza excepción si falla
+        const result = await authService.refreshToken(requestDto.userId, requestDto.refreshToken);
+        ctx.body = AuthMapper.toLoginResponse(result.token, result.refreshToken);
     }
 
     async getPayload(ctx: Context) {
         const authService = container.get<AuthService>(TYPES.AuthService);
         const requestBody = ctx.request.body as { token: string };
         const requestDto = new GetPayloadReqDto(requestBody.token);
-        const errors = await validate(requestDto);
-        if (errors.length > 0) {
-            ctx.status = httpStatus.UNAUTHORIZED;
-            ctx.body = { errors: errors.map(error => error.constraints) };
-            return;
-        }
+        await validateDto(requestDto); // Lanza excepción si falla
         const result = await authService.getPayload(requestDto.token);
-        ctx.status = httpStatus.OK;
-        ctx.body = result;
+        ctx.body = AuthMapper.toPayloadResponse(result);
     }
 
-    // método validateSecretKey eliminado
 }
