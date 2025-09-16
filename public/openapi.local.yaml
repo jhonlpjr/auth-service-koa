@@ -7,7 +7,7 @@ info:
     
     **Base URL:** `/api/v1`
 servers:
-- url: https://auth-service-test.duckdns.org/api/v1
+- url: http://localhost:6080/api/v1
 paths:
   /login:
     post:
