@@ -1,3 +1,4 @@
+import { simpleCors } from "./api/middleware/security";
 import serve from 'koa-static';
 // Serve static docs and OpenAPI spec
 
@@ -19,10 +20,21 @@ dotenv.config();
 const app = new Koa();
 app.proxy = true; // respeta X-Forwarded-For detrás de proxy/CDN
 
-// Orden importa: bodyParser -> errorHandler -> logger -> metrics -> captcha -> rutas
+// Orden importa: bodyParser -> errorHandler -> logger -> metrics -> cors -> captcha -> rutas
 app.use(serve('public'));
 app.use(bodyParser());
 app.use(errorHandler);
+// Permitir CORS para orígenes definidos en variables de entorno separadas (sin default por seguridad)
+const localOrigins = (process.env.CORS_ALLOW_ORIGINS_LOCAL || "")
+  .split(",")
+  .map(origin => origin.trim())
+  .filter(Boolean);
+const devOrigins = (process.env.CORS_ALLOW_ORIGINS_DEV || "")
+  .split(",")
+  .map(origin => origin.trim())
+  .filter(Boolean);
+const corsAllowOrigins = [...localOrigins, ...devOrigins];
+app.use(simpleCors(new Set(corsAllowOrigins)));
 app.use(responseStatus);
 app.use(loggerMiddleware);
 app.use(metricsMiddleware);
