@@ -1,0 +1,47 @@
+# AWS Lambda deployment config for Auth Service
+# This example uses AWS SAM (Serverless Application Model)
+# You can also use Serverless Framework or AWS CDK if preferred
+
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Auth Service - Koa (TypeScript) Lambda Deployment
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+    Runtime: nodejs20.x
+    Environment:
+      Variables:
+        NODE_ENV: production
+        PG_HOST: <your-db-host>
+        PG_PORT: 5432
+        PG_USER: <your-db-user>
+        PG_PASSWORD: <your-db-password>
+        PG_DATABASE: <your-db-name>
+        AWS_REGION: <your-region>
+        # Add other env vars as needed
+
+Resources:
+  AuthServiceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: dist/lambda.handler
+      CodeUri: .
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy: {}
+        - AWSLambdaBasicExecutionRole
+      Environment:
+        Variables:
+          # (repeat env vars here if needed)
+
+Outputs:
+  ApiUrl:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"

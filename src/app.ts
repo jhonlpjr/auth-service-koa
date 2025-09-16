@@ -1,3 +1,6 @@
+import serve from 'koa-static';
+// Serve static docs and OpenAPI spec
+
 import os from "os";
 import dotenv from "dotenv";
 import Koa from "koa";
@@ -16,6 +19,7 @@ const app = new Koa();
 app.proxy = true; // respeta X-Forwarded-For detrás de proxy/CDN
 
 // Orden importa: bodyParser -> errorHandler -> logger -> metrics -> captcha -> rutas
+app.use(serve('public'));
 app.use(bodyParser());
 app.use(errorHandler);
 app.use(loggerMiddleware);

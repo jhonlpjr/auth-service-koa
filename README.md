@@ -101,16 +101,18 @@ pnpm i --frozen-lockfile
 Create `.env` (or use `.env.example`):
 
 ```env
+Example for Dockerized app connecting to services on your host:
+
 # App
-PORT=3000
+PORT=6080
 NODE_ENV=development
 LOG_LEVEL=info
 
 # Database (adjust to your setup)
-PG_HOST=localhost
+PG_HOST=host.docker.internal
 PG_PORT=5432
-PG_USER=postgres
-PG_PASSWORD=postgres
+PG_USER=admin
+PG_PASSWORD=your_password
 PG_DATABASE=auth_db
 
 # Auth (rotate in prod)
@@ -121,7 +123,22 @@ JWT_ACCESS_TTL=10m
 JWT_REFRESH_TTL=30d
 
 # Optional (future)
-REDIS_URL=redis://localhost:6379
+REDIS_HOST=host.docker.internal
+REDIS_PORT=6379
+REDIS_URL=redis://host.docker.internal:6379
+
+# AWS/LocalStack
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=xxxx
+AWS_SECRET_ACCESS_KEY=xxxx
+SECRETS_ENDPOINT=http://host.docker.internal:4566
+
+# PASETO
+PASETO_SECRET_NAME=paseto-private-key
+
+# SUPERADMIN
+SUPER_SECRET_KEY=super-secret-key
+```
 ```
 
 ### 4) Run
@@ -138,39 +155,51 @@ npm run start
 
 ---
 
-## Docker
 
-Example multi-stage build (adjust paths as needed):
+---
 
-```dockerfile
-# syntax=docker/dockerfile:1
-FROM node:20-alpine AS deps
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --omit=dev
+## Docker Compose (local development only)
 
-FROM node:20-alpine AS build
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-RUN npm run build
+This project **does not use a custom Dockerfile**. For local development and testing, use only `docker-compose.yml`, which mounts the source code and runs the service in an official Node.js container. This setup allows you to access external services (Postgres, Redis, LocalStack) on your host machine using `host.docker.internal`.
 
-FROM gcr.io/distroless/nodejs20-debian12
-WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=build /app/dist ./dist
-COPY --from=deps /app/node_modules ./node_modules
-EXPOSE 3000
-CMD ["dist/app.js"]
-```
+Usage example:
 
-Run:
 ```bash
-docker build -t auth-service:local .
-docker run --rm -p 3000:3000 --env-file .env auth-service:local
+docker-compose up --build
+# The service will be available at http://localhost:6080
 ```
 
 ---
+
+## AWS Lambda Deployment (SAM)
+
+For AWS Lambda deployment, use AWS SAM. The template is located at `deploy/aws-sam/template.yaml`.
+
+Basic steps:
+
+1. Install AWS SAM CLI: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html
+2. Configure your AWS credentials (`aws configure` or environment variables).
+3. Build and deploy:
+
+```bash
+sam build --template-file deploy/aws-sam/template.yaml
+sam deploy --guided
+```
+
+AWS credentials can be set via environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`) or the standard AWS CLI config file.
+
+---
+
+## OpenAPI Documentation (RapiDoc)
+
+Interactive API documentation is available at `public/docs.html` using RapiDoc and the OpenAPI file `public/openapi.yaml`.
+
+To view locally:
+
+1. Start the service (`npm run dev` or `docker-compose up`).
+2. Open `http://localhost:6080/docs.html` in your browser.
+
+This allows you to test endpoints and see required headers directly from the web interface.
 
 ## API
 
