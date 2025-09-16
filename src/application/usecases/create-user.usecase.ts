@@ -1,7 +1,7 @@
 import { injectable, inject } from "inversify";
-import { TYPES } from "../../infraestructure/providers/types";
+import { TYPES } from "../../infrastructure/providers/types";
 import { UserRepository } from "../../domain/repository/user.repository";
-import { Argon2PasswordHasher } from "../../infraestructure/crypto/argon-2-password-hasher";
+import { Argon2PasswordHasher } from "../../infrastructure/crypto/argon-2-password-hasher";
 import * as crypto from "crypto";
 import { CreateUserDTO } from "../../api/dto/request/create-user.req.dto";
 

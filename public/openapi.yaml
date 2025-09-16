@@ -7,7 +7,7 @@ info:
     
     **Base URL:** `/api/v1`
 servers:
-  - url: http://localhost:3000/api/v1
+- url: http://localhost:6080/api/v1
 paths:
   /login:
     post:
@@ -29,7 +29,7 @@ paths:
               required: [username, password]
       responses:
         '200':
-          description: Login successful
+          description: Login successful. Returns access and refresh tokens.
           content:
             application/json:
               schema:
@@ -70,7 +70,7 @@ paths:
               required: [userId, refreshToken]
       responses:
         '200':
-          description: Token refreshed
+          description: Token refreshed. Returns new access and refresh tokens.
           content:
             application/json:
               schema:
@@ -101,7 +101,7 @@ paths:
               required: [token]
       responses:
         '200':
-          description: Token payload
+          description: Token payload. Returns user info if token is valid.
           content:
             application/json:
               schema:
@@ -148,8 +148,8 @@ paths:
                   type: string
               required: [username, email, password, key]
       responses:
-        '200':
-          description: User created
+        '201':
+          description: User created. Returns the new user and key.
           content:
             application/json:
               schema:

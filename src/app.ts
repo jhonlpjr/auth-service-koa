@@ -8,10 +8,11 @@ import { metricsMiddleware } from "./api/middleware/metrics";
 import bodyParser from "koa-bodyparser";
 import { errorHandler } from "./api/middleware/error-handler";
 import { loggerMiddleware } from "./api/middleware/logger";
+import { responseStatus } from "./api/middleware/response-status";
 import { captchaMiddleware } from "./api/middleware/captcha";
 import { setRoutes } from "./api/routes";
 import { setInfraRoutes } from "./api/routes/infra.routes";
-import { Environment } from "./infraestructure/config/environment.config";
+import { Environment } from "./infrastructure/config/environment.config";
 
 dotenv.config();
 
@@ -22,6 +23,7 @@ app.proxy = true; // respeta X-Forwarded-For detrás de proxy/CDN
 app.use(serve('public'));
 app.use(bodyParser());
 app.use(errorHandler);
+app.use(responseStatus);
 app.use(loggerMiddleware);
 app.use(metricsMiddleware);
 app.use(captchaMiddleware);

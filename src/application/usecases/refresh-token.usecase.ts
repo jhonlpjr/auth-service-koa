@@ -1,12 +1,12 @@
 import { injectable, inject } from "inversify";
-import { TYPES } from "../../infraestructure/providers/types";
+import { TYPES } from "../../infrastructure/providers/types";
 import { V2 } from 'paseto';
 import crypto from 'crypto';
 import { ENV } from "../../shared/constants/environments.constants";
-import SecretsManagerService from "../../infraestructure/secrets/secret-manager.service";
+import SecretsManagerService from "../../infrastructure/secrets/secret-manager.service";
 import { REFRESH_TOKEN_EXPIRATION_MS } from "../../shared/constants/refresh-token.constants";
 import { RefreshTokenRepository } from "../../domain/repository/refresh-token.repository";
-import { Environment } from "../../infraestructure/config/environment.config";
+import { Environment } from "../../infrastructure/config/environment.config";
 import { LoggedUserDTO } from "../dto/logged-user.dto";
 
 @injectable()

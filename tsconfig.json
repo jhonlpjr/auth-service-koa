@@ -11,6 +11,10 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true
   },
+  "baseUrl": ".",
+  "paths": {
+    "src/*": ["src/*"]
+  },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "**/*.spec.ts"]
 }

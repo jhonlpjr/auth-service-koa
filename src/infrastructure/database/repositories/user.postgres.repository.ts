@@ -14,7 +14,7 @@ export class UserRepositoryImpl implements UserRepository {
             );
             return result.rows[0] as User;
         } catch (error) {
-            logger.error("Error creating user:", error);
+            logger.error("Error creating user:", error as any);
             throw new DatabaseError(error);
         }
     }
@@ -25,7 +25,7 @@ export class UserRepositoryImpl implements UserRepository {
             return result.rows[0] as User;
         }
         catch (error) {
-            logger.error("Error fetching user by ID:", error);
+            logger.error("Error fetching user by ID:", error as any);
             throw new DatabaseError(error);
         }
     }
@@ -38,7 +38,7 @@ export class UserRepositoryImpl implements UserRepository {
             );
             return result.rows[0] as UserLogin;
         } catch (error) {
-            logger.error("Error fetching user by username:", error);
+            logger.error("Error fetching user by username:", error as any);
             throw new DatabaseError(error);
         }
     }

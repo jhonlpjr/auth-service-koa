@@ -139,7 +139,6 @@ PASETO_SECRET_NAME=paseto-private-key
 # SUPERADMIN
 SUPER_SECRET_KEY=super-secret-key
 ```
-```
 
 ### 4) Run
 ```bash
@@ -326,6 +325,37 @@ npm run typecheck
 - **Integration**: `/api/v1/login` and `/api/v1/refresh-token` with test DB and real hashing
 - **E2E**: Docker Compose (DB + service), hit HTTP endpoints
 - **Security**: Rate limit, invalid tokens, brute-force attempts
+
+---
+
+### Unit Testing
+
+Unit tests are located in the `test/` directory and cover core logic, error handling, and edge cases for each module. Key areas:
+
+- **Use Cases:**
+  - `login.usecase.spec.ts`: Tests login flow, password validation, token generation, and error scenarios.
+  - `refresh-token.usecase.spec.ts`: Tests refresh token rotation, validation, and error handling.
+- **Crypto & Utils:**
+  - `argon-2-password-hasher.spec.ts`: Tests password hashing, verification, and rehash logic.
+  - `validators.spec.ts`: Tests DTO validation and error mapping.
+- **Infrastructure:**
+  - `secret-manager.service.spec.ts`: Tests AWS Secrets Manager integration, singleton behavior, and error cases.
+- **Exceptions:**
+  - `bad-request-error.spec.ts`: Tests custom error properties and details.
+
+All unit tests use Jest with mocks for external dependencies. Run all tests with:
+
+```bash
+npm test
+```
+
+You can run a specific test file with:
+
+```bash
+npx jest test/path/to/file.spec.ts
+```
+
+Test coverage is reported in the `coverage/` directory after running the tests.
 
 ---
 

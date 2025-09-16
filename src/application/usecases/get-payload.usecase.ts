@@ -2,9 +2,9 @@ import { injectable } from "inversify";
 import logger from "../../shared/utils/logger";
 import { V2 } from "paseto";
 import { UnauthorizedError } from "../../shared/api/exceptions/unauthorized-error";
-import SecretsManagerService from "../../infraestructure/secrets/secret-manager.service";
+import SecretsManagerService from "../../infrastructure/secrets/secret-manager.service";
 import { ENV } from "../../shared/constants/environments.constants";
-import { Environment } from "../../infraestructure/config/environment.config";
+import { Environment } from "../../infrastructure/config/environment.config";
 import { PayloadMapper } from "../mappers/payload.mapper";
 
 @injectable()
@@ -21,9 +21,9 @@ export class GetPayloadUseCase {
       }
       return PayloadMapper.mapToPayloadResDTO(payload);
 
-    } catch (error) {
-      if (error instanceof Error || error instanceof UnauthorizedError) {
-        logger.error("Error during login:", error.message);
+    } catch (error: any) {
+      if (error instanceof Error) {
+        logger.error(`Error during login: ${error.message}`);
         throw error; // Propagar el error de credenciales inválidas
       } else {
         logger.error("Unknown error occurred");

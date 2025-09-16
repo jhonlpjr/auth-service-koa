@@ -1,10 +1,11 @@
 import { Context } from "koa";
 import { injectable, inject } from "inversify";
-import { TYPES } from "../../infraestructure/providers/types";
+import { TYPES } from "../../infrastructure/providers/types";
 import { CreateUserUseCase } from "../../application/usecases/create-user.usecase";
 import { CreateUserDTO } from "../dto/request/create-user.req.dto";
 import { validateDto } from "../../shared/utils/validators";
 import { UserMapper } from "../mappers/user.mapper";
+import { ResponseMapper } from "../../shared/mappers/response.mapper";
 
 
 @injectable()
@@ -18,9 +19,9 @@ export class SuperUserController {
         const requestDto = new CreateUserDTO(username, email, password);
         await validateDto(requestDto); // Lanza excepción si falla
         const result = await this.createUserUseCase.execute(requestDto);
-        ctx.body = {
-            user: UserMapper.toUserResponse(result.user),
-            key: result.key
-        };
+            ctx.body = ResponseMapper.createdResponse({
+                user: UserMapper.toUserResponse(result.user),
+                key: result.key
+            });
     }
 }

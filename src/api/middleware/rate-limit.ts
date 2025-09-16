@@ -1,6 +1,6 @@
 
 import { Context, Next } from "koa";
-import redis from '../../infraestructure/providers/redis';
+import redis from '../../infrastructure/providers/redis';
 
 function getKey(ip: string, username?: string, scope?: string) {
   if (username) return `${scope || 'login'}:user:${username}`;

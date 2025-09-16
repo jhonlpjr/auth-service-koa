@@ -5,8 +5,8 @@ import { loginRateLimit } from "../middleware/rate-limit";
 import { AuthController } from '../controllers/auth.controller';
 import { SuperUserController } from '../controllers/super-user.controller';
 import { superSecretKeyMiddleware } from '../middleware/super-secret-key';
-import { container } from '../../infraestructure/providers/container-config';
-import { TYPES } from '../../infraestructure/providers/types';
+import { container } from '../../infrastructure/providers/container-config';
+import { TYPES } from '../../infrastructure/providers/types';
 
 const router = new Router({ prefix: '/api/v1' });
 

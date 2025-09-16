@@ -1,6 +1,6 @@
 import { inject } from "inversify";
 import { LoginUseCase } from "../usecases/login.usecase";
-import { TYPES } from "../../infraestructure/providers/types";
+import { TYPES } from "../../infrastructure/providers/types";
 import logger from "../../shared/utils/logger";
 import { GetPayloadUseCase } from "../usecases/get-payload.usecase";
 import { RefreshTokenUseCase } from "../usecases/refresh-token.usecase";

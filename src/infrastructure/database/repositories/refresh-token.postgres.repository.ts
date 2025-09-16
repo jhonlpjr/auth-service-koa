@@ -12,7 +12,7 @@ export class RefreshTokenRepositoryImpl {
         [userId, hash, expiresAt, jti]
       );
     } catch (error) {
-      logger.error('Error saving refresh token:', error);
+      logger.error('Error saving refresh token:', error as any);
       throw new DatabaseError(error);
     }
   }
@@ -22,7 +22,7 @@ export class RefreshTokenRepositoryImpl {
       const res = await PostgresDB.query('SELECT * FROM refresh_tokens WHERE jti = $1', [jti]);
       return res.rows[0];
     } catch (error) {
-      logger.error('Error finding refresh token by jti:', error);
+      logger.error('Error finding refresh token by jti:', error as any);
       throw new DatabaseError(error);
     }
   }
@@ -31,7 +31,7 @@ export class RefreshTokenRepositoryImpl {
     try {
       await PostgresDB.query('DELETE FROM refresh_tokens WHERE jti = $1', [jti]);
     } catch (error) {
-      logger.error('Error revoking refresh token:', error);
+      logger.error('Error revoking refresh token:', error as any);
       throw new DatabaseError(error);
     }
   }
@@ -45,7 +45,7 @@ export class RefreshTokenRepositoryImpl {
       );
       return res.rows[0];
     } catch (error) {
-      logger.error('Error verifying refresh token:', error);
+      logger.error('Error verifying refresh token:', error as any);
       throw new DatabaseError(error);
     }
   }

@@ -1,8 +1,8 @@
 
 
 import { Context, Next } from "koa";
-import { Environment } from "../../infraestructure/config/environment.config";
-import SecretsManagerService from "../../infraestructure/secrets/secret-manager.service";
+import { Environment } from "../../infrastructure/config/environment.config";
+import SecretsManagerService from "../../infrastructure/secrets/secret-manager.service";
 import { ENV } from "../../shared/constants/environments.constants";
 import { ForbiddenError } from "../../shared/api/exceptions/forbidden-error";
 

@@ -1,6 +1,6 @@
 
 import svgCaptcha from 'svg-captcha';
-import redis from '../../infraestructure/providers/redis';
+import redis from '../../infrastructure/providers/redis';
 import { Context, Next } from 'koa';
 import { ForbiddenError } from '../../shared/api/exceptions/forbidden-error';
 
