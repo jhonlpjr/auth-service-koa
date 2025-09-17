@@ -55,7 +55,15 @@ paths:
       summary: Rotate refresh token
       description: |
         Rotates a refresh token and issues a new access token and refresh token. Requires a valid userId and refreshToken pair.
+        The refreshToken can be sent in the request body or as a cookie named `refreshToken`.
         Returns 401 if the refresh token is invalid or expired.
+      parameters:
+        - in: cookie
+          name: refreshToken
+          schema:
+            type: string
+          required: false
+          description: Refresh token (alternative to body)
       requestBody:
         required: true
         content:
@@ -67,7 +75,7 @@ paths:
                   type: string
                 refreshToken:
                   type: string
-              required: [userId, refreshToken]
+              required: [userId]
       responses:
         '200':
           description: Token refreshed. Returns new access and refresh tokens.
@@ -89,6 +97,14 @@ paths:
       summary: Get token payload
       description: |
         Verifies a PASETO token and returns its payload (user id, username, and key). Returns 401 if the token is invalid or expired.
+        The accessToken can be sent in the request body, as a cookie named `accessToken`, or in the Authorization header as Bearer.
+      parameters:
+        - in: cookie
+          name: accessToken
+          schema:
+            type: string
+          required: false
+          description: Access token (alternative to body or header)
       requestBody:
         required: true
         content:
@@ -98,7 +114,7 @@ paths:
               properties:
                 token:
                   type: string
-              required: [token]
+              required: []
       responses:
         '200':
           description: Token payload. Returns user info if token is valid.

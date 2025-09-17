@@ -1,3 +1,4 @@
+import { cookieParser } from "./api/middleware/cookie-parser";
 import { simpleCors } from "./api/middleware/security";
 import serve from 'koa-static';
 // Serve static docs and OpenAPI spec
@@ -24,6 +25,7 @@ app.proxy = true; // respeta X-Forwarded-For detrás de proxy/CDN
 app.use(serve('public'));
 app.use(bodyParser());
 app.use(errorHandler);
+app.use(cookieParser());
 // Permitir CORS para orígenes definidos en variables de entorno separadas (sin default por seguridad)
 const localOrigins = (process.env.CORS_ALLOW_ORIGINS_LOCAL || "")
   .split(",")
