@@ -1,8 +1,8 @@
 import { LoginResDTO } from "../dto/response/login.res.dto";
 
 export namespace AuthMapper {
-    export function toLoginResponse(token: string, refreshToken: string) {
-        return new LoginResDTO(token, refreshToken);
+    export function toLoginResponse(accessToken: string, refreshToken: string) {
+        return new LoginResDTO(accessToken, refreshToken);
     }
 
     export function toPayloadResponse(payload: any) {

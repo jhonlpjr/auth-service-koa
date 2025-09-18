@@ -1,6 +1,6 @@
 export class LoggedUserDTO {
     constructor(
-        public token: string,
+        public accessToken: string,
         public refreshToken: string,
     ) {}
 }   

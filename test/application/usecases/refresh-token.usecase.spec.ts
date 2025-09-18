@@ -10,6 +10,7 @@ import { LoggedUserDTO } from "../../../src/application/dto/logged-user.dto";
 import { RefreshTokenUseCase } from "../../../src/application/usecases/refresh-token.usecase";
 import SecretsManagerService from "../../../src/infrastructure/secrets/secret-manager.service";
 import crypto from 'crypto';
+import { TOKEN_EXPIRED_ERROR } from "../../../src/shared/constants/errors.constants";
 jest.mock('crypto');
 
 describe('RefreshTokenUseCase', () => {
@@ -49,16 +50,25 @@ describe('RefreshTokenUseCase', () => {
     expect(V2.sign).toHaveBeenCalled();
     expect(repo.save).toHaveBeenCalled();
     expect(result).toBeInstanceOf(LoggedUserDTO);
-    expect(result.token).toBe('signed-token');
+    expect(result.accessToken).toBe('signed-token');
   });
 
   it('should throw error if record is missing', async () => {
     repo.verify.mockResolvedValue(undefined);
-    await expect(useCase.execute('user1', 'refresh')).rejects.toThrow('Invalid or expired refresh token');
+    await expect(useCase.execute('user1', 'refresh')).rejects.toThrow('Unauthorized');
   });
 
   it('should throw error if record is expired', async () => {
     repo.verify.mockResolvedValue({ jti: 'jti', expires_at: new Date(Date.now() - 10000) });
-    await expect(useCase.execute('user1', 'refresh')).rejects.toThrow('Invalid or expired refresh token');
+    try {
+      await useCase.execute('user1', 'refresh');
+      // Si no lanza error, falla el test
+      fail('Should have thrown');
+    } catch (err: any) {
+      expect(err.message).toBe('Unauthorized');
+      // Verifica que el details coincida con TOKEN_EXPIRED_ERROR
+      expect(err.details).toBeDefined();
+      expect(err.details).toContain(TOKEN_EXPIRED_ERROR);
+    }
   });
 });

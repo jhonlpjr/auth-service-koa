@@ -39,27 +39,27 @@ describe('AuthController', () => {
 
   it('login: should validate, call service, and map response', async () => {
     ctx.request.body = { username: 'user', password: 'pass' };
-    authService.login.mockResolvedValue({ token: 't', refreshToken: 'r' });
-    (AuthMapper.toLoginResponse as jest.Mock).mockReturnValue({ token: 't', refreshToken: 'r' });
+    authService.login.mockResolvedValue({ accessToken: 't', refreshToken: 'r' });
+    (AuthMapper.toLoginResponse as jest.Mock).mockReturnValue({ accessToken: 't', refreshToken: 'r' });
     (ResponseMapper.okResponse as jest.Mock).mockReturnValue({ ok: true });
     await controller.login(ctx);
     expect(validateDto).toHaveBeenCalled();
     expect(authService.login).toHaveBeenCalledWith('user', 'pass');
     expect(AuthMapper.toLoginResponse).toHaveBeenCalledWith('t', 'r');
-    expect(ResponseMapper.okResponse).toHaveBeenCalledWith({ token: 't', refreshToken: 'r' });
+    expect(ResponseMapper.okResponse).toHaveBeenCalledWith({ accessToken: 't', refreshToken: 'r' });
     expect(ctx.body).toEqual({ ok: true });
   });
 
   it('refreshToken: should validate, call service, and map response', async () => {
     ctx.request.body = { userId: '1', refreshToken: 'r' };
-    authService.refreshToken.mockResolvedValue({ token: 't', refreshToken: 'r' });
-    (AuthMapper.toLoginResponse as jest.Mock).mockReturnValue({ token: 't', refreshToken: 'r' });
+    authService.refreshToken.mockResolvedValue({ accessToken: 't', refreshToken: 'r' });
+    (AuthMapper.toLoginResponse as jest.Mock).mockReturnValue({ accessToken: 't', refreshToken: 'r' });
     (ResponseMapper.okResponse as jest.Mock).mockReturnValue({ ok: true });
     await controller.refreshToken(ctx);
     expect(validateDto).toHaveBeenCalled();
     expect(authService.refreshToken).toHaveBeenCalledWith('1', 'r');
     expect(AuthMapper.toLoginResponse).toHaveBeenCalledWith('t', 'r');
-    expect(ResponseMapper.okResponse).toHaveBeenCalledWith({ token: 't', refreshToken: 'r' });
+    expect(ResponseMapper.okResponse).toHaveBeenCalledWith({ accessToken: 't', refreshToken: 'r' });
     expect(ctx.body).toEqual({ ok: true });
   });
 

@@ -13,6 +13,9 @@ import { Environment } from "../../infrastructure/config/environment.config";
 import { UserRepository } from "../../domain/repository/user.repository";
 import { RefreshTokenRepository } from "../../domain/repository/refresh-token.repository";
 import { LoggedUserDTO } from "../dto/logged-user.dto";
+import { REFRESH_TOKEN_EXPIRATION_MS } from "../../shared/constants/refresh-token.constants";
+import { INVALID_CREDENTIALS_ERROR, LOGIN_FAILED_DETAILS, LOGIN_FAILED_ERROR } from "../../shared/constants/errors.constants";
+import { InternalServerError } from "../../shared/api/exceptions/internal-server-error";
 
 @injectable()
 export class LoginUseCase {
@@ -23,14 +26,14 @@ export class LoginUseCase {
     try {
       const user = await this.userRepository.getUserByUsername(username);
       if (!user) {
-        throw new UnauthorizedError("Invalid credentials");
+        throw new UnauthorizedError(INVALID_CREDENTIALS_ERROR);
       }
 
       // Comparar el password ingresado con el hash almacenado usando Argon2id
       const hasher = new Argon2PasswordHasher();
       const isPasswordValid = await hasher.verify(user.password, password);
       if (!isPasswordValid) {
-        throw new UnauthorizedError("Invalid credentials");
+        throw new UnauthorizedError(INVALID_CREDENTIALS_ERROR);
       }
 
       // Obtener la clave privada PASETO desde Secrets Manager
@@ -44,17 +47,17 @@ export class LoginUseCase {
       // Generar refresh token rotativo
       const refreshToken = crypto.randomBytes(64).toString('hex');
       const jti = crypto.randomUUID();
-      const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7); // 7 días
+      const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRATION_MS);
       await this.refreshTokenRepository.save(user.id, refreshToken, expiresAt, jti);
 
       return new LoggedUserDTO(token, refreshToken);
 
     } catch (error) {
-      logger.error(`Error during login: ${error}`);
+      logger.error(LOGIN_FAILED_DETAILS.concat(JSON.stringify(error)));
       if (error instanceof UnauthorizedError) {
         throw error;
       }
-      throw new Error("Login failed");
+      throw new InternalServerError(LOGIN_FAILED_ERROR);
     }
   }
 }

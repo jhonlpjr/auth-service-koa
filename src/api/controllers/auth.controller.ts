@@ -24,9 +24,9 @@ export class AuthController {
         await validateDto(requestDto); // Lanza excepción si falla
         const result = await authService.login(requestDto.username, requestDto.password);
         // Set cookie httpOnly para navegadores (usando utilitario compartido)
-        CookieUtils.setCookie(ctx, ACCESS_TOKEN, result.token);
+        CookieUtils.setCookie(ctx, ACCESS_TOKEN, result.accessToken);
         ctx.body = ResponseMapper.okResponse(
-            AuthMapper.toLoginResponse(result.token, result.refreshToken)
+            AuthMapper.toLoginResponse(result.accessToken, result.refreshToken)
         );
     }
 
@@ -42,21 +42,22 @@ export class AuthController {
         await validateDto(requestDto); // Lanza excepción si falla
         const result = await authService.refreshToken(requestDto.userId, requestDto.refreshToken);
         // Set cookie httpOnly para navegadores (usando utilitario compartido)
-        CookieUtils.setCookie(ctx, ACCESS_TOKEN, result.token);
+        CookieUtils.setCookie(ctx, ACCESS_TOKEN, result.accessToken);
         ctx.body = ResponseMapper.okResponse(
-            AuthMapper.toLoginResponse(result.token, result.refreshToken)
+            AuthMapper.toLoginResponse(result.accessToken, result.refreshToken)
         );
     }
 
     async getPayload(ctx: Context) {
         const authService = container.get<AuthService>(TYPES.AuthService);
-        const token = TokenUtils.getTokenFromRequest(ctx, ACCESS_TOKEN);
-        if (!token) {
+        const accessToken = TokenUtils.getTokenFromRequest(ctx, ACCESS_TOKEN);
+        console.log('Access Token obtenido:', accessToken);
+        if (!accessToken) {
             throw new UnauthorizedError(TOKEN_NOT_PROVIDED_ERROR);
         }
-        const requestDto = new GetPayloadReqDto(token);
+        const requestDto = new GetPayloadReqDto(accessToken);
         await validateDto(requestDto); // Lanza excepción si falla
-        const result = await authService.getPayload(requestDto.token);
+        const result = await authService.getPayload(requestDto.accessToken);
         ctx.body = ResponseMapper.okResponse(
             AuthMapper.toPayloadResponse(result)
         );

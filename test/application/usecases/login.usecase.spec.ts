@@ -12,6 +12,7 @@ import { Argon2PasswordHasher } from '../../../src/infrastructure/crypto/argon-2
 import SecretsManagerService from '../../../src/infrastructure/secrets/secret-manager.service';
 import { V2 } from 'paseto';
 import crypto from 'crypto';
+import { LOGIN_FAILED_ERROR } from '../../../src/shared/constants/errors.constants';
 jest.mock('crypto');
 
 describe('LoginUseCase', () => {
@@ -48,7 +49,7 @@ describe('LoginUseCase', () => {
     expect(V2.sign).toHaveBeenCalled();
     expect(refreshTokenRepository.save).toHaveBeenCalled();
     expect(result).toBeInstanceOf(LoggedUserDTO);
-    expect(result.token).toBe('signed-token');
+    expect(result.accessToken).toBe('signed-token');
   });
 
   it('should throw UnauthorizedError if user not found', async () => {
@@ -64,6 +65,6 @@ describe('LoginUseCase', () => {
 
   it('should throw generic error on other failures', async () => {
     userRepository.getUserByUsername.mockRejectedValue(new Error('fail'));
-    await expect(useCase.execute('user', 'plain')).rejects.toThrow('Login failed');
+    await expect(useCase.execute('user', 'plain')).rejects.toThrow(LOGIN_FAILED_ERROR);
   });
 });

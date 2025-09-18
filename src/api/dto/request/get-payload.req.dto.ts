@@ -1,10 +1,10 @@
 import { IsString } from "class-validator";
 
 export class GetPayloadReqDto {
-  @IsString({message: 'Token key invalid or not found'})
-  token: string;
+  @IsString({message: 'Access Token invalid or not found'})
+  accessToken: string;
 
-  constructor(token: string) {
-    this.token = token;
+  constructor(accessToken: string) {
+    this.accessToken = accessToken;
   }
 }

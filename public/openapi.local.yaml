@@ -35,7 +35,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  token:
+                  accessToken:
                     type: string
                   refreshToken:
                     type: string
@@ -84,7 +84,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  token:
+                  accessToken:
                     type: string
                   refreshToken:
                     type: string
@@ -112,7 +112,7 @@ paths:
             schema:
               type: object
               properties:
-                token:
+                accessToken:
                   type: string
               required: []
       responses:

@@ -1,6 +1,6 @@
 export class LoginResDTO {
     constructor(
-        public token: string,
+        public accessToken: string,
         public refreshToken: string
     ) {}
 }

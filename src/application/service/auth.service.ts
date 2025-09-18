@@ -7,7 +7,6 @@ import { RefreshTokenUseCase } from "../usecases/refresh-token.usecase";
 import { injectable } from "inversify";
 import { PayloadDTO } from "../dto/payload.dto";
 import { LoggedUserDTO } from "../dto/logged-user.dto";
-import { LoginReqDTO } from "../../api/dto/request/login.req.dto";
 
 @injectable()
 export class AuthService {
