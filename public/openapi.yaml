@@ -4,17 +4,76 @@ info:
   version: 1.0.0
   description: |
     Production-ready authentication microservice (Koa, TypeScript).
-    
+
     **Base URL:** `/api/v1`
 servers:
-- url: https://auth-service-test.duckdns.org/api/v1
+  - url: https://auth-service-test.duckdns.org/api/v1
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    clientKey:
+      type: apiKey
+      in: header
+      name: X-Client-Key
+    superSecretKey:
+      type: apiKey
+      in: header
+      name: x-super-secret-key
+  schemas:
+    LoginResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          example: Bearer
+        expires_in:
+          type: integer
+        scope:
+          type: string
+          description: Space-delimited list of scopes granted
+        aud:
+          type: string
+          description: Audience for which the token is intended
+        refresh_token:
+          type: string
+        user_id:
+          type: string
+    RevocationResponse:
+      type: object
+      properties:
+        revoked:
+          type: boolean
+      example:
+        revoked: true
+    MFAFactorsItem:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
 paths:
   /login:
     post:
       summary: User login
       description: |
-        Authenticates a user with username and password. Returns a PASETO access token, a refresh token, and basic user info on success.
-        Rate limited. Returns 401 on invalid credentials.
+        **Authenticate a user (BFF/S2S only).**
+        Receives username and password, returns a signed access token (JWT/PASETO), a refresh token (opaque, rotatable), and user/session info.
+        Requires the `X-Client-Key` header for S2S authentication. Rate limited. Returns 401 on invalid credentials or missing client key.
+      security:
+        - clientKey: []
       requestBody:
         required: true
         content:
@@ -33,30 +92,21 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  accessToken:
-                    type: string
-                  refreshToken:
-                    type: string
-                  user:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      username:
-                        type: string
+                $ref: '#/components/schemas/LoginResponse'
         '401':
           description: Unauthorized
         '400':
           description: Validation error
+
   /refresh-token:
     post:
       summary: Rotate refresh token
       description: |
-        Rotates a refresh token and issues a new access token and refresh token. Requires a valid userId and refreshToken pair.
-        The refreshToken can be sent in the request body or as a cookie named `refreshToken`.
-        Returns 401 if the refresh token is invalid or expired.
+        **Rotate and reuse-detect refresh tokens.**
+        Receives a valid userId and refreshToken, issues a new access/refresh token pair. Detects reuse and revokes all sessions if detected.
+        Accepts refreshToken in body or cookie. Requires `X-Client-Key` header. Returns 401 if invalid, expired, or reused.
+      security:
+        - clientKey: []
       parameters:
         - in: cookie
           name: refreshToken
@@ -75,6 +125,12 @@ paths:
                   type: string
                 refreshToken:
                   type: string
+                aud:
+                  type: string
+                  description: Audience for which the new token is intended (optional)
+                scope:
+                  type: string
+                  description: Space-delimited list of scopes to request (optional)
               required: [userId]
       responses:
         '200':
@@ -82,71 +138,20 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  accessToken:
-                    type: string
-                  refreshToken:
-                    type: string
+                $ref: '#/components/schemas/LoginResponse'
         '401':
           description: Unauthorized
         '400':
           description: Validation error
-  /get-payload:
-    post:
-      summary: Get token payload
-      description: |
-        Verifies a PASETO token and returns its payload (user id, username, and key). Returns 401 if the token is invalid or expired.
-        The accessToken can be sent in the request body, as a cookie named `accessToken`, or in the Authorization header as Bearer.
-      parameters:
-        - in: cookie
-          name: accessToken
-          schema:
-            type: string
-          required: false
-          description: Access token (alternative to body or header)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                accessToken:
-                  type: string
-              required: []
-      responses:
-        '200':
-          description: Token payload. Returns user info if token is valid.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                  username:
-                    type: string
-                  key:
-                    type: string
-        '401':
-          description: Unauthorized
-        '400':
-          description: Validation error
+
   /super/create-user:
     post:
       summary: Create user (superuser, protected)
       description: |
-        Creates a new user in the system. This endpoint is strictly protected and can only be accessed by super users or root users who possess a unique, strong secret key.
-        The required `x-super-secret-key` header must contain the secret value, which is securely stored in AWS Secrets Manager and never exposed in code or configuration files.
-        Attempts to access this endpoint without the correct secret key will result in a 403 Forbidden error.
-      parameters:
-        - in: header
-          name: x-super-secret-key
-          required: true
-          schema:
-            type: string
-          description: Secret key required to access this endpoint
+        **Create a new user (superuser only).**
+        Protected endpoint, requires `x-super-secret-key` header (stored in AWS Secrets Manager). Only accessible by superusers. Returns 403 if key is missing or invalid.
+      security:
+        - superSecretKey: []
       requestBody:
         required: true
         content:
@@ -160,12 +165,10 @@ paths:
                   type: string
                 password:
                   type: string
-                key:
-                  type: string
-              required: [username, email, password, key]
+              required: [username, email, password]
       responses:
         '201':
-          description: User created. Returns the new user and key.
+          description: User created. Returns the new user info.
           content:
             application/json:
               schema:
@@ -180,9 +183,181 @@ paths:
                         type: string
                       email:
                         type: string
-                  key:
-                    type: string
         '403':
           description: Forbidden
         '400':
           description: Validation error
+
+  /revoke:
+    post:
+      summary: Revoke refresh tokens
+      description: |
+        **Revoke all refresh tokens for a user or a specific token by jti.**
+        Accepts userId and/or jti in the body. Revokes all sessions for the user or a single session. Requires `X-Client-Key` header.
+      security:
+        - clientKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+                  description: User ID to revoke all sessions (optional)
+                jti:
+                  type: string
+                  description: Token JTI to revoke a specific session (optional)
+      responses:
+        '200':
+          description: Revocation successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevocationResponse'
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+
+  /.well-known/jwks.json:
+    get:
+      summary: JWKS endpoint
+      description: |
+        **Returns the public JWKS for JWT validation.**
+        Used by downstream services to validate JWT signatures.
+      responses:
+        '200':
+          description: JWKS JSON
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kty:
+                          type: string
+                        crv:
+                          type: string
+                        x:
+                          type: string
+                        y:
+                          type: string
+                        alg:
+                          type: string
+                        use:
+                          type: string
+                        kid:
+                          type: string
+              examples:
+                ecExample:
+                  summary: Example EC key
+                  value:
+                    keys:
+                      - kty: EC
+                        crv: P-256
+                        x: GIZ7xTN3d6dC2-AKyVTgzE05Aj1CJhjbRQEKRajdibs
+                        y: SGfuW2zER03GybgHkEVMJG5evEelWsEmLSF_opdNGhs
+                        alg: ES256
+                        use: sig
+                        kid: main
+
+  /mfa/totp/setup:
+    post:
+      summary: Iniciar setup de TOTP MFA
+      description: Genera un secreto TOTP y otpauth URL para apps como Google Authenticator. Protegido con client-auth y requiere sesión (Bearer).
+      security:
+        - clientKey: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                serviceName:
+                  type: string
+              required: []
+      responses:
+        '200':
+          description: Devuelve otpauthUrl para escanear en la app TOTP.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  otpauthUrl:
+                    type: string
+
+  /mfa/totp/activate:
+    post:
+      summary: Activar TOTP MFA
+      description: Valida el código TOTP y activa el factor para el usuario.
+      security:
+        - clientKey: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+              required: [token]
+      responses:
+        '200':
+          description: Activado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  activated:
+                    type: boolean
+        '400':
+          description: Código inválido
+
+  /mfa/verify:
+    post:
+      summary: Verificar TOTP MFA
+      description: Verifica el código TOTP y responde si es válido.
+      security:
+        - clientKey: []
+      parameters:
+        - in: header
+          name: X-Login-Tx
+          required: false
+          schema:
+            type: string
+          description: Identificador de transacción de login (opcional, también puede ir en el body)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                login_tx:
+                  type: string
+                  description: Identificador de transacción de login (opcional si se envía por header)
+                token:
+                  type: string
+              required: [token]
+      responses:
+        '200':
+          description: MFA verificado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  verified:
+                    type: boolean

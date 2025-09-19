@@ -1,4 +1,4 @@
-import { BadRequestError } from '../../../../src/shared/api/exceptions/bad-request-error';
+import { BadRequestError } from '../../../../src/shared/exceptions/bad-request-error';
 import { HttpStatus } from '../../../../src/shared/enums/http-status.enum';
 
 describe('BadRequestError', () => {

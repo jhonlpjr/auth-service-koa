@@ -1,7 +1,7 @@
 
 import { validate } from 'class-validator';
 import { validateDto } from '../../../src/shared/utils/validators';
-import { BadRequestError } from '../../../src/shared/api/exceptions/bad-request-error';
+import { BadRequestError } from '../../../src/shared/exceptions/bad-request-error';
 
 jest.mock('class-validator');
 

@@ -1,33 +1,28 @@
 # Auth Service (Koa, TypeScript)
 
-A production-ready **authentication microservice** exposing an HTTP API built with **Koa** and **Clean Architecture**.  
-Focus: security, clarity, and operability for portfolios and real deployments.
+A production-ready **authentication microservice** exposing an HTTP API built with **Koa** and **Clean Architecture**.
+Focus: security, clarity, and operability for real-world deployments.
 
 ---
-
 
 ## Key Features
 
-- **HTTP API (Koa)** with thin routes and controllers
+- **BFF/S2S Auth**: JSON-only, no cookies or CSRF, secure for backend-for-frontend and server-to-server.
+- **JWT**: Access tokens (RS256/ES256/EdDSA), rotating opaque refresh tokens, reuse detection.
+- **Secure refresh token rotation**: Each use rotates the token and detects reuse to revoke compromised sessions.
+- **No cookies, no CSRF**: No browser logic, only S2S APIs.
+- **Strict CORS**: No external origins allowed by default. Only explicit origins via environment variables.
 - **Clean Architecture** (Presentation / Application / Domain / Infrastructure)
-- **Strict DTO validation** using `class-validator` on all request DTOs
-- **Consistent error handling** with custom HTTP exception classes and global error middleware
-- **Response mapping**: all responses (success/error) are mapped via a shared `ResponseMapper`
-- **Security hardening**
-  - Request correlation: `X-Request-Id` on every request
-  - Global error handler with consistent JSON responses (includes requestId)
-  - Security headers, minimal CORS allowlist
-  - In-memory rate limiting (stricter on `/login`), Redis-ready
-  - Body size limit (`128kb`), `app.proxy = true` for real client IPs
-  - Redacted logging (Authorization/password/token)
+- **Strict DTO validation** using `class-validator` for all input DTOs.
+- **Consistent error handling** with HTTP exception classes and global middleware.
+- **Response mapping**: all responses (success/error) go through a ResponseMapper.
+- **Security hardening**: request-id, headers, rate limit, redacted logging, body limit, proxy-aware.
 - **Dependency Injection** via Inversify
-- **Docker-ready**, 12-Factor configuration via `.env`
+- **Docker-ready**, 12-Factor config via `.env`
 - **PostgreSQL** (or your DB of choice), pluggable via adapters
-
-> Roadmap: Zod validation, Redis rate limiting, PASETO/JWT with key rotation, conditional CAPTCHA, Prometheus metrics, rotating refresh tokens.
+- **Redis**: Required for rate limiting and MFA transaction storage
 
 ---
-
 
 ## Tech Stack
 
@@ -36,15 +31,14 @@ Focus: security, clarity, and operability for portfolios and real deployments.
 - **Validation:** class-validator, class-transformer
 - **Logging:** Pino (pretty in dev) with secret redaction
 - **DB:** PostgreSQL (swap via adapters)
-- **Auth:** PASETO (upgradeable, JWT compatible)
+- **Auth:** JWT (default, PASETO optional/legacy)
 - **DI:** Inversify
-- **Cache/Rate Limit:** In-memory, Redis-ready
+- **Cache/Rate Limit:** Redis (required for production/MFA)
 - **Container:** Docker
 
 ---
 
-
-## Project Structure (actual)
+## Project Structure
 
 ```txt
 src/
@@ -57,14 +51,14 @@ src/
     mappers/           # API mappers
     routes/            # Koa routes
   application/
-    usecases/          # Use cases (Login, RefreshToken, etc.)
+    usecases/          # Use cases (Login, RefreshToken, MFA, etc.)
     mappers/           # Application-level mappers
     service/           # Application services
   domain/
     entities/          # User, RefreshToken
     interfaces/        # Domain interfaces
     repository/        # Repository interfaces
-  infraestructure/
+  infrastructure/
     config/            # Environment config
     crypto/            # Password hasher, crypto utils
     database/
@@ -75,7 +69,6 @@ src/
     api/exceptions/    # Custom HTTP exception classes
     constants/         # Shared constants
     enums/             # Shared enums
-    helpers/           # Shared helpers
     mappers/           # Shared mappers (e.g., ResponseMapper)
     utils/             # Shared utilities (logger, validators, etc.)
   app.ts               # Koa app wiring
@@ -88,7 +81,7 @@ src/
 ### 1) Requirements
 - Node.js 18+ (20+ recommended)
 - PostgreSQL running locally (or use Docker)
-- (Optional) Redis for production-grade rate limiting
+- Redis (required for rate limiting and MFA)
 
 ### 2) Install
 ```bash
@@ -101,28 +94,20 @@ pnpm i --frozen-lockfile
 Create `.env` (or use `.env.example`):
 
 ```env
-Example for Dockerized app connecting to services on your host:
+JWT_DEFAULT_AUD=auth-clients
+JWT_DEFAULT_SCOPE=default
+JWT_TTL_SECONDS=900
+PASETO_SECRET_NAME=paseto-private-key
+# mTLS y S2S
+AUTH_MTLS_ENABLED=false
+BFF_CLIENT_KEY=your-bff-client-key
+BFF_TLS_SUBJECT=CN=your-bff-client
 
-# App
-PORT=6080
-NODE_ENV=development
-LOG_LEVEL=info
+# CORS (solo si necesitas exponer a frontends)
+CORS_ALLOW_ORIGINS_LOCAL=http://localhost:3000
+CORS_ALLOW_ORIGINS_DEV=https://tu-frontend.com
 
-# Database (adjust to your setup)
-PG_HOST=host.docker.internal
-PG_PORT=5432
-PG_USER=admin
-PG_PASSWORD=your_password
-PG_DATABASE=auth_db
-
-# Auth (rotate in prod)
-JWT_SECRET=replace_with_strong_secret
-JWT_ISS=auth-service
-JWT_AUD=auth-clients
-JWT_ACCESS_TTL=10m
-JWT_REFRESH_TTL=30d
-
-# Optional (future)
+# Redis (opcional)
 REDIS_HOST=host.docker.internal
 REDIS_PORT=6379
 REDIS_URL=redis://host.docker.internal:6379
@@ -132,9 +117,6 @@ AWS_REGION=us-east-1
 AWS_ACCESS_KEY_ID=xxxx
 AWS_SECRET_ACCESS_KEY=xxxx
 SECRETS_ENDPOINT=http://host.docker.internal:4566
-
-# PASETO
-PASETO_SECRET_NAME=paseto-private-key
 
 # SUPERADMIN
 SUPER_SECRET_KEY=super-secret-key
@@ -200,17 +182,17 @@ To view locally:
 
 This allows you to test endpoints and see required headers directly from the web interface.
 
+
 ## API
 
 ### Base URL
 ```
-/v1
+/api/v1
 ```
-
 
 ### Auth API
 
-- **POST** `/api/v1/login` — Authenticate user
+- **POST** `/api/v1/login` — Autenticación S2S/BFF
   - **Request (JSON)**
     ```json
     { "username": "user1", "password": "strongPass123" }
@@ -218,55 +200,63 @@ This allows you to test endpoints and see required headers directly from the web
   - **Response (200)**
     ```json
     {
-      "token": "paseto...",
-      "refreshToken": "...",
-      "user": { "id": "uuid", "username": "user1" }
+      "access_token": "jwt...",
+      "token_type": "Bearer",
+      "expires_in": 900,
+      "scope": "movies:read",
+      "aud": "movies-api",
+      "refresh_token": "...",
+      "user_id": "uuid"
     }
     ```
-  - **Errors**: `401 Unauthorized`, `429 Too Many Requests`, `400` for validation
+  - **Errors**: `401 Unauthorized`, `429 Too Many Requests`, `400` para validación
 
-- **POST** `/api/v1/refresh-token` — Rotate refresh token
+- **POST** `/api/v1/refresh-token` — Rotar refresh token (BFF/S2S)
   - **Request (JSON)**
     ```json
-    { "userId": "uuid", "refreshToken": "..." }
+    { "userId": "uuid", "refreshToken": "...", "aud": "movies-api", "scope": "movies:read" }
     ```
   - **Response (200)**
     ```json
     {
-      "token": "paseto...",
-      "refreshToken": "..."
+      "access_token": "jwt...",
+      "token_type": "Bearer",
+      "expires_in": 900,
+      "scope": "movies:read",
+      "aud": "movies-api",
+      "refresh_token": "...",
+      "user_id": "uuid"
     }
     ```
-  - **Errors**: `401 Unauthorized`, `400` for validation
+  - **Errors**: `401 Unauthorized`, `400` para validación
 
-- **POST** `/api/v1/get-payload` — Get token payload
+- **POST** `/api/v1/revoke` — Revocar refresh tokens (BFF/S2S)
   - **Request (JSON)**
     ```json
-    { "token": "paseto..." }
+    { "userId": "uuid" }
     ```
   - **Response (200)**
     ```json
-    {
-      "id": "uuid",
-      "username": "user1",
-      "key": "..."
-    }
+    { "revoked": true }
     ```
-  - **Errors**: `401 Unauthorized`, `400` for validation
 
-- **POST** `/api/v1/super/create-user` — Create user (superuser, protected)
-  - **Request (JSON)**
-    ```json
-    { "username": "admin", "email": "admin@example.com", "password": "...", "key": "..." }
-    ```
-  - **Response (200)**
-    ```json
-    {
-      "user": { "id": "uuid", "username": "admin", "email": "admin@example.com" },
-      "key": "..."
-    }
-    ```
-  - **Errors**: `403 Forbidden`, `400` for validation
+
+### MFA (Multi-Factor Authentication)
+
+- **POST** `/api/v1/mfa/totp/setup` — Inicia el setup TOTP (devuelve `{ "otpauthUrl": "otpauth://..." }`)
+- **POST** `/api/v1/mfa/totp/activate` — Activa TOTP tras validar el código (devuelve `{ "activated": true }`)
+- **POST** `/api/v1/mfa/verify` — Verifica TOTP (devuelve `{ "verified": true }`)
+- **POST** `/api/v1/mfa/recovery/verify` — Verifica recovery code (devuelve `{ "verified": true }`)
+- **GET** `/api/v1/mfa/factors` — Lista factores MFA activos (array de `{ id, type, status, createdAt }`)
+
+**Flujo típico:**
+1. Usuario hace login → si requiere MFA, recibe `{ step: 'mfa', mfa: { types: [...] } }`
+2. Frontend pide TOTP o recovery code y llama a `/mfa/verify` o `/mfa/recovery/verify`
+3. Si es válido, recibe `{ verified: true }` y accede normalmente
+
+**Notas:**
+- Todos los endpoints MFA usan validación estricta de DTO (class-validator) y respuestas mapeadas por `ResponseMapper`.
+- La documentación interactiva está en `/docs.html` y el archivo OpenAPI (`openapi.yaml`) está alineado con la implementación.
 
 ### Infra & Health
 
@@ -274,28 +264,86 @@ This allows you to test endpoints and see required headers directly from the web
 - **GET** `/healthz` — Liveness probe
 - **GET** `/readyz` — Readiness probe
 
-### Health
-- **GET** `/healthz` — basic liveness (no sensitive data) *(planned)*
-- **GET** `/readyz` — readiness for load balancers *(planned)*
 
 ---
 
 
+
 ## Security & Hardening
 
-- **Request ID**: All requests receive `X-Request-Id`, echoed in error responses.
-- **Error Handling**: Global error handler returns consistent JSON, maps exceptions to HTTP codes, includes requestId.
+- **BFF/S2S only**: No cookies, no CSRF, solo APIs seguras para backend y server-to-server.
+- **Refresh tokens rotativos**: Cada uso rota el token y detecta reuse (revoca todas las sesiones si hay reuse).
+- **CORS seguro**: Por defecto no permite ningún origen externo. Solo permite orígenes explícitos vía variables de entorno.
+- **Request ID**: Todas las respuestas incluyen `X-Request-Id`.
+- **Error Handling**: Middleware global, respuestas JSON consistentes.
 - **Security Headers**: Frame blocking, no-sniff, no-referrer, etc.
-- **CORS**: Minimal allowlist (see `api/middleware/cors.ts` or `security.ts`).
-- **Rate Limiting**:
-  - Global in-memory limiter (per instance)
-  - Stricter limiter on `/api/v1/login`
-  - **Production**: swap for Redis-backed limiter for distributed setups
+- **Rate Limiting**: In-memory global, más estricto en `/login`. Redis-ready para producción.
 - **Body Limit**: `128kb`
-- **Proxy Awareness**: `app.proxy = true` (respects `X-Forwarded-For`)
-- **Logging**: Pino, with redaction of `Authorization`, `password`, `token`
+- **Proxy Awareness**: `app.proxy = true` (respeta `X-Forwarded-For`)
+- **Logging**: Pino, redacta `Authorization`, `password`, `token`
 - **Password Hashing**: Argon2
-- **Token Format**: PASETO (upgradeable, JWT compatible)
+- **Token Format**: JWT/PASETO (upgradeable, JWKS endpoint)
+
+---
+
+## Ejemplo de uso con curl
+
+
+### Login
+```bash
+curl -X POST http://localhost:6080/api/v1/login \
+  -H "Content-Type: application/json" \
+  -H "X-Client-Key: <tu-client-key>" \
+  -d '{"username":"user1","password":"strongPass123"}'
+```
+
+### Refresh token (con aud/scope)
+```bash
+curl -X POST http://localhost:6080/api/v1/refresh-token \
+  -H "Content-Type: application/json" \
+  -H "X-Client-Key: <tu-client-key>" \
+  -d '{"userId":"uuid","refreshToken":"...","aud":"movies-api","scope":"movies:read"}'
+```
+
+### Revocar todos los refresh tokens de un usuario
+```bash
+curl -X POST http://localhost:6080/api/v1/revoke \
+  -H "Content-Type: application/json" \
+  -H "X-Client-Key: <tu-client-key>" \
+  -d '{"userId":"uuid"}'
+```
+
+---
+
+## Variables de entorno principales
+
+| Variable                | Descripción                                      | Ejemplo/Valor           |
+|-------------------------|--------------------------------------------------|-------------------------|
+| PORT                    | Puerto HTTP                                      | 6080                    |
+| PG_HOST                 | Host de PostgreSQL                               | host.docker.internal    |
+| PG_PORT                 | Puerto de PostgreSQL                             | 5432                    |
+| PG_USER                 | Usuario de PostgreSQL                            | admin                   |
+| PG_PASSWORD             | Contraseña de PostgreSQL                         | ...                     |
+| PG_DATABASE             | Base de datos                                    | auth_db                 |
+| JWT_PRIVATE_KEY_PATH    | Ruta a la clave privada JWT (PEM)                | ./keys/jwt-private-key.pem |
+| JWT_ALG                 | Algoritmo JWT                                    | RS256                   |
+| JWT_ISS                 | Issuer (iss)                                     | auth-service            |
+| JWT_DEFAULT_AUD         | Audiencia por defecto (aud)                      | auth-clients            |
+| JWT_DEFAULT_SCOPE       | Scope por defecto                                | default                 |
+| JWT_TTL_SECONDS         | Tiempo de vida del access token (segundos)       | 900                     |
+| PASETO_SECRET_NAME      | Nombre del secreto PASETO en AWS/local           | paseto-private-key      |
+| AUTH_MTLS_ENABLED       | Habilitar mTLS para S2S                          | false                   |
+| BFF_CLIENT_KEY          | Clave de cliente S2S                             | your-bff-client-key     |
+| BFF_TLS_SUBJECT         | Subject esperado en el certificado del BFF        | CN=your-bff-client      |
+| SUPER_SECRET_KEY        | Clave para endpoints protegidos (superuser)       | super-secret-key        |
+| CORS_ALLOW_ORIGINS_*    | Orígenes permitidos para CORS                    | http://localhost:3000   |
+| REDIS_HOST              | Host de Redis (opcional)                         | host.docker.internal    |
+| AWS_REGION              | Región AWS (si usas LocalStack o AWS)            | us-east-1               |
+| AWS_ACCESS_KEY_ID       | AWS Access Key                                   | ...                     |
+| AWS_SECRET_ACCESS_KEY   | AWS Secret Key                                   | ...                     |
+| SECRETS_ENDPOINT        | Endpoint de secrets (LocalStack)                  | http://host.docker.internal:4566 |
+
+---
 
 ---
 

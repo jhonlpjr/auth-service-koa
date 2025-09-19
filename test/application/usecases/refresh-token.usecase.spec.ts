@@ -23,7 +23,10 @@ describe('RefreshTokenUseCase', () => {
     repo = {
       verify: jest.fn(),
       revoke: jest.fn(),
-      save: jest.fn()
+      save: jest.fn(),
+      markAsUsed: jest.fn(),
+      markAsRotated: jest.fn(),
+      revokeByUserId: jest.fn()
     };
     useCase = new RefreshTokenUseCase(repo);
     secretsManager = { getSecret: jest.fn() };
@@ -37,20 +40,48 @@ describe('RefreshTokenUseCase', () => {
     jest.restoreAllMocks();
   });
 
-  it('should verify, revoke, save and return LoggedUserDTO', async () => {
+  it('should rotate refresh token and mark as used/rotated', async () => {
     const userId = 'user1';
     const refreshToken = 'refresh';
-    const record = { jti: 'jti', expires_at: new Date(Date.now() + 10000) };
+    const record = { jti: 'jti', expires_at: new Date(Date.now() + 10000), used: false };
     repo.verify.mockResolvedValue(record);
+    repo.markAsUsed = jest.fn();
+    repo.markAsRotated = jest.fn();
     secretsManager.getSecret.mockResolvedValue('secret');
+    repo.save.mockResolvedValue(undefined);
     const result = await useCase.execute(userId, refreshToken);
     expect(repo.verify).toHaveBeenCalledWith(userId, refreshToken);
-    expect(repo.revoke).toHaveBeenCalledWith('jti');
+    expect(repo.markAsUsed).toHaveBeenCalledWith('jti');
+    expect(repo.markAsRotated).toHaveBeenCalledWith('jti');
     expect(secretsManager.getSecret).toHaveBeenCalled();
     expect(V2.sign).toHaveBeenCalled();
-    expect(repo.save).toHaveBeenCalled();
+    expect(repo.save).toHaveBeenCalledWith(
+      userId,
+      expect.any(String),
+      expect.any(Date),
+      expect.any(String),
+      {},
+      'jti'
+    );
     expect(result).toBeInstanceOf(LoggedUserDTO);
     expect(result.accessToken).toBe('signed-token');
+  });
+
+  it('should revoke all tokens and throw on reuse detection', async () => {
+    const userId = 'user1';
+    const refreshToken = 'refresh';
+    const record = { jti: 'jti', expires_at: new Date(Date.now() + 10000), used: true };
+    repo.verify.mockResolvedValue(record);
+    repo.revokeByUserId = jest.fn();
+    try {
+      await useCase.execute(userId, refreshToken);
+      fail('Should have thrown');
+    } catch (err: any) {
+      expect(err).toBeInstanceOf(Error);
+      expect(err.message).toBe('Unauthorized');
+      expect(err.details).toBe('Refresh token reuse detected. All sessions revoked.');
+    }
+    expect(repo.revokeByUserId).toHaveBeenCalledWith(userId);
   });
 
   it('should throw error if record is missing', async () => {

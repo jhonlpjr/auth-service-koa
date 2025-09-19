@@ -7,7 +7,7 @@
     "start": "ts-node src/app.ts",
     "build": "tsc",
     "dev": "ts-node-dev src/app.ts",
-  "test": "jest --config jest.config.js --coverage"
+    "test": "jest --config jest.config.js --coverage"
   },
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.888.0",
@@ -16,6 +16,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "dotenv": "^16.5.0",
+    "hi-base32": "^0.5.1",
     "inversify": "^7.5.1",
     "ioredis": "^5.7.0",
     "jose": "^6.1.0",
@@ -24,6 +25,7 @@
     "koa-bodyparser": "^4.4.1",
     "koa-router": "^10.0.0",
     "koa-static": "^5.0.0",
+    "otplib": "^12.0.1",
     "paseto": "^3.1.4",
     "pg": "^8.15.1",
     "pino": "^9.6.0",

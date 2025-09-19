@@ -2,7 +2,7 @@
 import svgCaptcha from 'svg-captcha';
 import redis from '../../infrastructure/providers/redis';
 import { Context, Next } from 'koa';
-import { ForbiddenError } from '../../shared/api/exceptions/forbidden-error';
+import { ForbiddenError } from '../../shared/exceptions/forbidden-error';
 
 const MAX_LOGIN_FAILS = 3;
 const CAPTCHA_TTL = 300; // segundos

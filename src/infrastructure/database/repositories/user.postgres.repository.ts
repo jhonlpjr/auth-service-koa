@@ -2,7 +2,7 @@ import { UserLogin } from "../../../domain/interfaces/user-login.interface";
 import { UserRepository } from "../../../domain/repository/user.repository";
 import { PostgresDB } from "../../../shared/utils/database";
 import logger from "../../../shared/utils/logger";
-import { DatabaseError } from "../../../shared/api/exceptions/database-error";
+import { DatabaseError } from "../../../shared/exceptions/database-error";
 import { User } from "../../../domain/interfaces/user.interface";
 
 export class UserRepositoryImpl implements UserRepository {

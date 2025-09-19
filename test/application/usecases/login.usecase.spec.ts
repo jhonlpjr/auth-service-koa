@@ -6,7 +6,7 @@ jest.mock('paseto', () => ({
   }
 }));
 import { LoginUseCase } from '../../../src/application/usecases/login.usecase';
-import { UnauthorizedError } from '../../../src/shared/api/exceptions/unauthorized-error';
+import { UnauthorizedError } from '../../../src/shared/exceptions/unauthorized-error';
 import { LoggedUserDTO } from '../../../src/application/dto/logged-user.dto';
 import { Argon2PasswordHasher } from '../../../src/infrastructure/crypto/argon-2-password-hasher';
 import SecretsManagerService from '../../../src/infrastructure/secrets/secret-manager.service';

@@ -1,5 +1,5 @@
 import { validate } from 'class-validator';
-import { BadRequestError } from '../api/exceptions/bad-request-error';
+import { BadRequestError } from '../exceptions/bad-request-error';
 
 export async function validateDto(dto: object) {
     const errors = await validate(dto);

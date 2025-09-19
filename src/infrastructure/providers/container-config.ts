@@ -1,3 +1,4 @@
+import { Argon2PasswordHasher } from '../../infrastructure/crypto/argon-2-password-hasher';
 import { Container } from 'inversify';
 import { TYPES } from './types';
 import { LoginUseCase } from '../../application/usecases/login.usecase';
@@ -9,16 +10,24 @@ import { SuperUserController } from '../../api/controllers/super-user.controller
 import { CreateUserUseCase } from '../../application/usecases/create-user.usecase';
 import { GetPayloadUseCase } from '../../application/usecases/get-payload.usecase';
 import { RefreshTokenRepositoryImpl } from '../database/repositories/refresh-token.postgres.repository';
+import { MfaFactorsRepositoryImpl } from '../repositories/mfa-factors.repository';
+import { RecoveryCodesRepositoryImpl } from '../repositories/recovery-codes.repository';
+import { MfaTotpService } from '../../application/service/mfa.totp.service';
+import { IssueTokensForUserIdUseCase } from '../../application/usecases/issue-tokens-for-user-id.usecase';
 
 const container = new Container();
-
+container.bind(TYPES.UserRepository).to(UserRepositoryImpl);
+container.bind(TYPES.RefreshTokenRepository).to(RefreshTokenRepositoryImpl);
+container.bind(TYPES.MfaFactorsRepository).to(MfaFactorsRepositoryImpl);
+container.bind(TYPES.RecoveryCodesRepository).to(RecoveryCodesRepositoryImpl);
+container.bind<Argon2PasswordHasher>(TYPES.PasswordHasher).to(Argon2PasswordHasher).inSingletonScope();
 container.bind<LoginUseCase>(TYPES.LoginUseCase).to(LoginUseCase);
 container.bind<CreateUserUseCase>(TYPES.CreateUserUseCase).to(CreateUserUseCase);
 container.bind<GetPayloadUseCase>(TYPES.GetPayloadUseCase).to(GetPayloadUseCase);
-container.bind<AuthService>(TYPES.AuthService).to(AuthService);
-container.bind(TYPES.UserRepository).to(UserRepositoryImpl);
-container.bind(TYPES.RefreshTokenRepository).to(RefreshTokenRepositoryImpl);
 container.bind<RefreshTokenUseCase>(TYPES.RefreshTokenUseCase).to(RefreshTokenUseCase);
+container.bind<IssueTokensForUserIdUseCase>(TYPES.IssueTokensForUserIdUseCase).to(IssueTokensForUserIdUseCase);
+container.bind<AuthService>(TYPES.AuthService).to(AuthService);
+container.bind<MfaTotpService>(TYPES.MfaTotpService).to(MfaTotpService);
 container.bind<AuthController>(TYPES.AuthController).to(AuthController);
 container.bind<SuperUserController>(TYPES.SuperUserController).to(SuperUserController);
 

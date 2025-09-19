@@ -1,5 +1,5 @@
 import { PayloadDTO } from "../dto/payload.dto";
-import { UnauthorizedError } from "../../shared/api/exceptions/unauthorized-error";
+import { UnauthorizedError } from "../../shared/exceptions/unauthorized-error";
 
 export namespace PayloadMapper {
     export function mapToPayloadResDTO(payload: Record<string, any>): PayloadDTO {

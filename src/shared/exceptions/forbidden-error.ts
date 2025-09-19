@@ -1,4 +1,4 @@
-import { HttpStatus } from "../../enums/http-status.enum";
+import { HttpStatus } from "../enums/http-status.enum";
 
 export class ForbiddenError extends Error {
     public statusCode: number;

@@ -23,13 +23,40 @@ describe('RefreshTokenRepositoryImpl', () => {
     });
   });
 
-  it('should save a refresh token', async () => {
+  it('should save a refresh token (extended)', async () => {
     (PostgresDB.query as jest.Mock).mockResolvedValue({});
-    await expect(repo.save(mockUserId, mockToken, mockExpiresAt, mockJti)).resolves.toBeUndefined();
+    const meta = { ip: '127.0.0.1' };
+    const parentJti = 'parent-jti';
+    await expect(repo.save(mockUserId, mockToken, mockExpiresAt, mockJti, meta, parentJti)).resolves.toBeUndefined();
     expect(PostgresDB.query).toHaveBeenCalledWith(
-      'INSERT INTO refresh_tokens (user_id, token_hash, expires_at, jti) VALUES ($1, $2, $3, $4)',
-      [mockUserId, mockHash, mockExpiresAt, mockJti]
+      expect.stringContaining('INSERT INTO refresh_tokens'),
+      [mockUserId, mockHash, mockExpiresAt, mockJti, JSON.stringify(meta), parentJti]
     );
+  });
+
+  it('should mark a refresh token as used', async () => {
+    (PostgresDB.query as jest.Mock).mockResolvedValue({});
+    await expect(repo.markAsUsed(mockJti)).resolves.toBeUndefined();
+    expect(PostgresDB.query).toHaveBeenCalledWith('UPDATE refresh_tokens SET used = TRUE WHERE jti = $1', [mockJti]);
+  });
+
+  it('should mark a refresh token as rotated', async () => {
+    (PostgresDB.query as jest.Mock).mockResolvedValue({});
+    await expect(repo.markAsRotated(mockJti)).resolves.toBeUndefined();
+    expect(PostgresDB.query).toHaveBeenCalledWith('UPDATE refresh_tokens SET rotated = TRUE, rotated_at = NOW() WHERE jti = $1', [mockJti]);
+  });
+
+  it('should find by parentJti', async () => {
+    (PostgresDB.query as jest.Mock).mockResolvedValue({ rows: [mockRow] });
+    const result = await repo.findByParentJti('parent-jti');
+    expect(result).toEqual([mockRow]);
+    expect(PostgresDB.query).toHaveBeenCalledWith('SELECT * FROM refresh_tokens WHERE parent_jti = $1', ['parent-jti']);
+  });
+
+  it('should revoke by userId', async () => {
+    (PostgresDB.query as jest.Mock).mockResolvedValue({});
+    await expect(repo.revokeByUserId(mockUserId)).resolves.toBeUndefined();
+    expect(PostgresDB.query).toHaveBeenCalledWith('DELETE FROM refresh_tokens WHERE user_id = $1', [mockUserId]);
   });
 
   it('should find by jti', async () => {

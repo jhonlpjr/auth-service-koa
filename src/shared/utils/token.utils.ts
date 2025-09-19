@@ -1,7 +1,9 @@
 import { Context } from 'koa';
 import { ACCESS_TOKEN } from '../constants/keys.constants';
-import { UnauthorizedError } from '../api/exceptions/unauthorized-error';
-import { V2 } from 'paseto';
+import { UnauthorizedError } from '../exceptions/unauthorized-error';
+import { sign, verify, JwtPayload } from 'jsonwebtoken';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'changeme';
 
 export namespace TokenUtils {
     export function getTokenFromRequest(
@@ -30,29 +32,22 @@ export namespace TokenUtils {
         }
         return token;
     }
-    export function extractBearerToken(authorizationHeader?: string): string | null {
-        if (
-            authorizationHeader &&
-            typeof authorizationHeader === 'string' &&
-            authorizationHeader.startsWith('Bearer ')
-        ) {
-            return authorizationHeader.replace('Bearer ', '').trim();
+    export function validateBearerHeader(authHeader?: string): void {
+        if (!authHeader || typeof authHeader !== 'string' || !authHeader.startsWith('Bearer ')) {
+            throw new UnauthorizedError('Missing or invalid Authorization header');
         }
-        return null;
     }
-    export async function verifyPasetoToken(token: string, publicKey: Buffer | string): Promise<any> {
+    export function extractBearerToken(authorizationHeader: string): string {
+        validateBearerHeader(authorizationHeader);
+        return authorizationHeader.replace('Bearer ', '').trim();
+    }
+    export function signJwtToken(payload: object, options?: object): string {
+        return sign(payload, JWT_SECRET, { expiresIn: '1h', ...options });
+    }
+
+    export function verifyJwtToken(token: string): JwtPayload {
         try {
-            // Si usas claims estándar como exp, puedes validar aquí
-            const payload = await V2.verify(token, publicKey);
-            // Si quieres controlar expiración manualmente:
-            if (
-                payload.exp &&
-                (typeof payload.exp === 'string' || typeof payload.exp === 'number') &&
-                Date.now() > new Date(payload.exp).getTime()
-            ) {
-                throw new UnauthorizedError('Token expired');
-            }
-            return payload;
+            return verify(token, JWT_SECRET) as JwtPayload;
         } catch (err: any) {
             if (err.message && err.message.toLowerCase().includes('expired')) {
                 throw new UnauthorizedError('Token expired');

@@ -1,4 +1,4 @@
-import { HttpStatus } from "../../enums/http-status.enum";
+import { HttpStatus } from "../enums/http-status.enum";
 
 export class NotFoundError extends Error {
     public statusCode: number;

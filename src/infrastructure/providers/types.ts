@@ -9,4 +9,10 @@ export const TYPES = {
   RefreshTokenUseCase: Symbol.for('RefreshTokenUseCase'),
   SuperUserController: Symbol.for('SuperUserController'),
   AuthController: Symbol.for('AuthController'),
+  MfaLoginService: Symbol.for('MfaLoginService'),
+  MfaFactorsRepository: Symbol.for('MfaFactorsRepository'),
+  RecoveryCodesRepository: Symbol.for('RecoveryCodesRepository'),
+  IssueTokensForUserIdUseCase: Symbol.for('IssueTokensForUserIdUseCase'),
+  MfaTotpService: Symbol.for('MfaTotpService'),
+  PasswordHasher: Symbol.for('PasswordHasher'),
 };

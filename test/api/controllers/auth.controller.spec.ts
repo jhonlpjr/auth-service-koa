@@ -37,30 +37,38 @@ describe('AuthController', () => {
     (validateDto as jest.Mock).mockResolvedValue(undefined);
   });
 
-  it('login: should validate, call service, and map response', async () => {
+  it('login: should validate, call service, and map response (with aud/scope)', async () => {
     ctx.request.body = { username: 'user', password: 'pass' };
-    authService.login.mockResolvedValue({ accessToken: 't', refreshToken: 'r' });
-    (AuthMapper.toLoginResponse as jest.Mock).mockReturnValue({ accessToken: 't', refreshToken: 'r' });
-    (ResponseMapper.okResponse as jest.Mock).mockReturnValue({ ok: true });
+    authService.login.mockResolvedValue({ accessToken: 't', refreshToken: 'r', userId: 'u', expiresIn: 3600, scope: 'movies:read', aud: 'movies-api' });
     await controller.login(ctx);
     expect(validateDto).toHaveBeenCalled();
     expect(authService.login).toHaveBeenCalledWith('user', 'pass');
-    expect(AuthMapper.toLoginResponse).toHaveBeenCalledWith('t', 'r');
-    expect(ResponseMapper.okResponse).toHaveBeenCalledWith({ accessToken: 't', refreshToken: 'r' });
-    expect(ctx.body).toEqual({ ok: true });
+    expect(ctx.body).toEqual({
+      access_token: 't',
+      token_type: 'Bearer',
+      expires_in: 3600,
+      scope: 'movies:read',
+      aud: 'movies-api',
+      refresh_token: 'r',
+      user_id: 'u'
+    });
   });
 
-  it('refreshToken: should validate, call service, and map response', async () => {
+  it('refreshToken: should validate, call service, and map response (with aud/scope)', async () => {
     ctx.request.body = { userId: '1', refreshToken: 'r' };
-    authService.refreshToken.mockResolvedValue({ accessToken: 't', refreshToken: 'r' });
-    (AuthMapper.toLoginResponse as jest.Mock).mockReturnValue({ accessToken: 't', refreshToken: 'r' });
-    (ResponseMapper.okResponse as jest.Mock).mockReturnValue({ ok: true });
+    authService.refreshToken.mockResolvedValue({ accessToken: 't', refreshToken: 'r', userId: '1', expiresIn: 3600, scope: 'movies:read', aud: 'movies-api' });
     await controller.refreshToken(ctx);
     expect(validateDto).toHaveBeenCalled();
     expect(authService.refreshToken).toHaveBeenCalledWith('1', 'r');
-    expect(AuthMapper.toLoginResponse).toHaveBeenCalledWith('t', 'r');
-    expect(ResponseMapper.okResponse).toHaveBeenCalledWith({ accessToken: 't', refreshToken: 'r' });
-    expect(ctx.body).toEqual({ ok: true });
+    expect(ctx.body).toEqual({
+      access_token: 't',
+      token_type: 'Bearer',
+      expires_in: 3600,
+      scope: 'movies:read',
+      aud: 'movies-api',
+      refresh_token: 'r',
+      user_id: '1'
+    });
   });
 
   it('getPayload: should validate, call service, and map response (token in body)', async () => {
