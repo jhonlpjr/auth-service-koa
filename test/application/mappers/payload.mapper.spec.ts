@@ -1,6 +1,6 @@
 import { PayloadMapper } from '../../../src/application/mappers/payload.mapper';
 import { PayloadDTO } from '../../../src/application/dto/payload.dto';
-import { UnauthorizedError } from '../../../src/shared/api/exceptions/unauthorized-error';
+import { UnauthorizedError } from '../../../src/shared/exceptions/unauthorized-error';
 
 describe('PayloadMapper.mapToPayloadResDTO', () => {
   it('should map valid payload to PayloadDTO', () => {

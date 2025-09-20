@@ -1,12 +1,13 @@
-import { RefreshTokenRepositoryImpl } from '../../../../src/infrastructure/database/repositories/refresh-token.postgres.repository';
+
+import { PgRefreshTokenRepository } from '../../../../src/infrastructure/adapters/repositories/postgres/refresh-token.postgres.repository';
 import { PostgresDB } from '../../../../src/shared/utils/database';
 import crypto from 'crypto';
 
 jest.mock('../../../../src/shared/utils/database');
 jest.mock('crypto');
 
-describe('RefreshTokenRepositoryImpl', () => {
-  let repo: RefreshTokenRepositoryImpl;
+describe('PgRefreshTokenRepository', () => {
+  let repo: PgRefreshTokenRepository;
   const mockToken = 'sometoken';
   const mockHash = 'hashedtoken';
   const mockUserId = 'user123';
@@ -15,7 +16,7 @@ describe('RefreshTokenRepositoryImpl', () => {
   const mockRow = { user_id: mockUserId, token_hash: mockHash, expires_at: mockExpiresAt, jti: mockJti };
 
   beforeEach(() => {
-    repo = new RefreshTokenRepositoryImpl();
+  repo = new PgRefreshTokenRepository();
     jest.clearAllMocks();
     (crypto.createHash as jest.Mock).mockReturnValue({
       update: jest.fn().mockReturnThis(),

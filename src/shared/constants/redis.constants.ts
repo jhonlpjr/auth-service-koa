@@ -20,4 +20,6 @@ export namespace RedisConstants {
     export const LOGIN_SCOPE = 'login';
     export const UNKNOWN_IP = 'unknown';
     export const ONE_REQUEST = 1;
+    export const EXPIRATION_TIME = 'EX';
+    export const EXPIRATION_TIME_VALUE = 300;
 }

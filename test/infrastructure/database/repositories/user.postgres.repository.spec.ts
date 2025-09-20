@@ -1,4 +1,4 @@
-import { UserRepositoryImpl } from '../../../../src/infrastructure/database/repositories/user.postgres.repository';
+import { PgUserRepository } from '../../../../src/infrastructure/adapters/repositories/postgres/user.postgres.repository';
 import { PostgresDB } from '../../../../src/shared/utils/database';
 
 jest.mock('../../../../src/shared/utils/database');
@@ -10,11 +10,12 @@ const mockUser = {
   key: 'key123',
 };
 
-describe('UserRepositoryImpl', () => {
-  let repo: UserRepositoryImpl;
+
+describe('PgUserRepository', () => {
+  let repo: PgUserRepository;
 
   beforeEach(() => {
-    repo = new UserRepositoryImpl();
+    repo = new PgUserRepository();
     jest.clearAllMocks();
   });
 

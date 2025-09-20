@@ -1,5 +1,13 @@
+// Evita error de importación ES de jose en Jest
+jest.mock('jose', () => ({
+  importSPKI: jest.fn(),
+  exportJWK: jest.fn()
+}));
 import { AuthController } from '../../../src/api/controllers/auth.controller';
-import { AuthService } from '../../../src/application/service/auth.service';
+import { LoginUseCase } from '../../../src/application/usecases/auth/login.usecase';
+import { RefreshTokenUseCase } from '../../../src/application/usecases/auth/refresh-token.usecase';
+import { GetPayloadUseCase } from '../../../src/application/usecases/auth/get-payload.usecase';
+import { RevokeTokenUseCase } from '../../../src/application/usecases/auth/revoke-token.usecase';
 import { container } from '../../../src/infrastructure/providers/container-config';
 import { TYPES } from '../../../src/infrastructure/providers/types';
 import { ResponseMapper } from '../../../src/shared/mappers/response.mapper';
@@ -14,7 +22,11 @@ jest.mock('../../../src/api/mappers/auth.mapper');
 describe('AuthController', () => {
   let controller: AuthController;
   let ctx: any;
-  let authService: any;
+  let loginUseCase: any;
+  let refreshTokenUseCase: any;
+  let getPayloadUseCase: any;
+  let revokeTokenUseCase: any;
+  let needsMfaUseCase: any;
 
   beforeEach(() => {
     controller = new AuthController();
@@ -25,13 +37,17 @@ describe('AuthController', () => {
       headers: {},
       cookies: { set: jest.fn() }, // Mock cookies.set for setCookie util
     };
-    authService = {
-      login: jest.fn(),
-      refreshToken: jest.fn(),
-      getPayload: jest.fn(),
-    };
+    loginUseCase = { execute: jest.fn() };
+    refreshTokenUseCase = { execute: jest.fn() };
+    getPayloadUseCase = { execute: jest.fn() };
+    revokeTokenUseCase = { execute: jest.fn() };
+    needsMfaUseCase = { execute: jest.fn().mockResolvedValue(false) };
     (container.get as jest.Mock).mockImplementation((type) => {
-      if (type === TYPES.AuthService) return authService;
+      if (type === TYPES.LoginUseCase) return loginUseCase;
+      if (type === TYPES.RefreshTokenUseCase) return refreshTokenUseCase;
+      if (type === TYPES.GetPayloadUseCase) return getPayloadUseCase;
+      if (type === TYPES.RevokeTokenUseCase) return revokeTokenUseCase;
+      if (type === TYPES.NeedsMfaUseCase) return needsMfaUseCase;
       return undefined;
     });
     (validateDto as jest.Mock).mockResolvedValue(undefined);
@@ -39,10 +55,21 @@ describe('AuthController', () => {
 
   it('login: should validate, call service, and map response (with aud/scope)', async () => {
     ctx.request.body = { username: 'user', password: 'pass' };
-    authService.login.mockResolvedValue({ accessToken: 't', refreshToken: 'r', userId: 'u', expiresIn: 3600, scope: 'movies:read', aud: 'movies-api' });
+    loginUseCase.execute.mockResolvedValue({ accessToken: 't', refreshToken: 'r', userId: 'u', expiresIn: 3600, scope: 'movies:read', aud: 'movies-api' });
+    needsMfaUseCase.execute.mockResolvedValue(false); // asegurar flujo directo
+    (AuthMapper.toLoginResponse as jest.Mock).mockReturnValue({
+      access_token: 't',
+      token_type: 'Bearer',
+      expires_in: 3600,
+      scope: 'movies:read',
+      aud: 'movies-api',
+      refresh_token: 'r',
+      user_id: 'u'
+    });
+    (ResponseMapper.okResponse as jest.Mock).mockImplementation((x) => x);
     await controller.login(ctx);
     expect(validateDto).toHaveBeenCalled();
-    expect(authService.login).toHaveBeenCalledWith('user', 'pass');
+    expect(loginUseCase.execute).toHaveBeenCalledWith('user', 'pass');
     expect(ctx.body).toEqual({
       access_token: 't',
       token_type: 'Bearer',
@@ -56,10 +83,20 @@ describe('AuthController', () => {
 
   it('refreshToken: should validate, call service, and map response (with aud/scope)', async () => {
     ctx.request.body = { userId: '1', refreshToken: 'r' };
-    authService.refreshToken.mockResolvedValue({ accessToken: 't', refreshToken: 'r', userId: '1', expiresIn: 3600, scope: 'movies:read', aud: 'movies-api' });
+    refreshTokenUseCase.execute.mockResolvedValue({ accessToken: 't', refreshToken: 'r', userId: '1', expiresIn: 3600, scope: 'movies:read', aud: 'movies-api' });
+    needsMfaUseCase.execute.mockResolvedValue(false); // asegurar flujo directo
+    (AuthMapper.toLoginResponse as jest.Mock).mockReturnValue({
+      access_token: 't',
+      token_type: 'Bearer',
+      expires_in: 3600,
+      scope: 'movies:read',
+      aud: 'movies-api',
+      refresh_token: 'r',
+      user_id: '1'
+    });
     await controller.refreshToken(ctx);
     expect(validateDto).toHaveBeenCalled();
-    expect(authService.refreshToken).toHaveBeenCalledWith('1', 'r');
+    expect(refreshTokenUseCase.execute).toHaveBeenCalledWith('1', 'r');
     expect(ctx.body).toEqual({
       access_token: 't',
       token_type: 'Bearer',
@@ -73,12 +110,12 @@ describe('AuthController', () => {
 
   it('getPayload: should validate, call service, and map response (token in body)', async () => {
     ctx.request.body = { accessToken: 't' };
-    authService.getPayload.mockResolvedValue({ id: '1', username: 'u', key: 'k' });
+    getPayloadUseCase.execute.mockResolvedValue({ id: '1', username: 'u', key: 'k' });
     (AuthMapper.toPayloadResponse as jest.Mock).mockReturnValue({ id: '1', username: 'u', key: 'k' });
     (ResponseMapper.okResponse as jest.Mock).mockReturnValue({ ok: true });
     await controller.getPayload(ctx);
     expect(validateDto).toHaveBeenCalled();
-    expect(authService.getPayload).toHaveBeenCalledWith('t');
+    expect(getPayloadUseCase.execute).toHaveBeenCalledWith('t');
     expect(AuthMapper.toPayloadResponse).toHaveBeenCalledWith({ id: '1', username: 'u', key: 'k' });
     expect(ResponseMapper.okResponse).toHaveBeenCalledWith({ id: '1', username: 'u', key: 'k' });
     expect(ctx.body).toEqual({ ok: true });
@@ -87,11 +124,11 @@ describe('AuthController', () => {
   it('getPayload: should use token from cookie if not in body', async () => {
     ctx.request.body = {};
     ctx.state.cookies.accessToken = 'cookie-token';
-    authService.getPayload.mockResolvedValue({ id: '2', username: 'cookie', key: 'k2' });
+    getPayloadUseCase.execute.mockResolvedValue({ id: '2', username: 'cookie', key: 'k2' });
     (AuthMapper.toPayloadResponse as jest.Mock).mockReturnValue({ id: '2', username: 'cookie', key: 'k2' });
     (ResponseMapper.okResponse as jest.Mock).mockReturnValue({ ok: true });
     await controller.getPayload(ctx);
-    expect(authService.getPayload).toHaveBeenCalledWith('cookie-token');
+    expect(getPayloadUseCase.execute).toHaveBeenCalledWith('cookie-token');
     expect(ctx.body).toEqual({ ok: true });
   });
 
@@ -99,11 +136,11 @@ describe('AuthController', () => {
     ctx.request.body = {};
     ctx.state.cookies = {};
     ctx.headers.authorization = 'Bearer header-token';
-    authService.getPayload.mockResolvedValue({ id: '3', username: 'header', key: 'k3' });
+    getPayloadUseCase.execute.mockResolvedValue({ id: '3', username: 'header', key: 'k3' });
     (AuthMapper.toPayloadResponse as jest.Mock).mockReturnValue({ id: '3', username: 'header', key: 'k3' });
     (ResponseMapper.okResponse as jest.Mock).mockReturnValue({ ok: true });
     await controller.getPayload(ctx);
-    expect(authService.getPayload).toHaveBeenCalledWith('header-token');
+    expect(getPayloadUseCase.execute).toHaveBeenCalledWith('header-token');
     expect(ctx.body).toEqual({ ok: true });
   });
 

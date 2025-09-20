@@ -1,7 +1,7 @@
 import { Context } from "koa";
 import { injectable, inject } from "inversify";
 import { TYPES } from "../../infrastructure/providers/types";
-import { CreateUserUseCase } from "../../application/usecases/create-user.usecase";
+import { CreateUserUseCase } from "../../application/usecases/auth/create-user.usecase";
 import { CreateUserDTO } from "../dto/request/create-user.req.dto";
 import { validateDto } from "../../shared/utils/validators";
 import { UserMapper } from "../mappers/user.mapper";
