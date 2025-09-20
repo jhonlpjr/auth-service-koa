@@ -14,6 +14,20 @@ import { ResponseMapper } from '../../../src/shared/mappers/response.mapper';
 import { AuthMapper } from '../../../src/api/mappers/auth.mapper';
 import { validateDto } from '../../../src/shared/utils/validators';
 
+import redis from '../../../src/infrastructure/providers/redis';
+
+import * as Crypto from 'crypto';
+
+// Mockear randomUUID globalmente para evitar redefinición
+jest.mock('crypto', () => ({
+  ...jest.requireActual('crypto'),
+  randomUUID: jest.fn(() => '11111111-1111-1111-1111-111111111111')
+}));
+
+jest.mock('../../../src/infrastructure/providers/redis', () => ({
+  set: jest.fn()
+}));
+
 jest.mock('../../../src/infrastructure/providers/container-config');
 jest.mock('../../../src/shared/utils/validators');
 jest.mock('../../../src/shared/mappers/response.mapper');
@@ -27,6 +41,8 @@ describe('AuthController', () => {
   let getPayloadUseCase: any;
   let revokeTokenUseCase: any;
   let needsMfaUseCase: any;
+
+  // randomUUID ya está mockeado globalmente
 
   beforeEach(() => {
     controller = new AuthController();
@@ -51,6 +67,9 @@ describe('AuthController', () => {
       return undefined;
     });
     (validateDto as jest.Mock).mockResolvedValue(undefined);
+
+  (Crypto.randomUUID as jest.Mock).mockClear();
+  jest.clearAllMocks();
   });
 
   it('login: should validate, call service, and map response (with aud/scope)', async () => {
@@ -79,6 +98,30 @@ describe('AuthController', () => {
       refresh_token: 'r',
       user_id: 'u'
     });
+  });
+
+  it('login: should handle MFA step and respond with loginTx', async () => {
+    ctx.request.body = { username: 'user', password: 'pass' };
+    loginUseCase.execute.mockResolvedValue({ userId: 'u' });
+    needsMfaUseCase.execute.mockResolvedValue(true);
+    const fakeLoginTx = '11111111-1111-1111-1111-111111111111';
+    (Crypto.randomUUID as jest.Mock).mockReturnValue(fakeLoginTx);
+  (AuthMapper.toMfaLoginResponse as jest.Mock).mockReturnValue({ login_tx: fakeLoginTx, mfa: ['totp', 'recovery'] });
+    (ResponseMapper.okResponse as jest.Mock).mockImplementation((x) => x);
+    const redisSetSpy = jest.spyOn(redis, 'set').mockResolvedValue(undefined as any);
+
+    await controller.login(ctx);
+    expect(validateDto).toHaveBeenCalled();
+    expect(loginUseCase.execute).toHaveBeenCalledWith('user', 'pass');
+    expect(needsMfaUseCase.execute).toHaveBeenCalledWith('u');
+    expect(redisSetSpy).toHaveBeenCalledWith(
+      expect.stringContaining(fakeLoginTx),
+      'u',
+      expect.anything(),
+      expect.anything()
+    );
+  expect(AuthMapper.toMfaLoginResponse).toHaveBeenCalledWith(fakeLoginTx, expect.arrayContaining(['totp', 'recovery']));
+  expect(ctx.body).toEqual({ login_tx: fakeLoginTx, mfa: ['totp', 'recovery'] });
   });
 
   it('refreshToken: should validate, call service, and map response (with aud/scope)', async () => {
